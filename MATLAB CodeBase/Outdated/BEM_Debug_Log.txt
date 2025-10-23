@@ -1,0 +1,136 @@
+=== BEM Analysis Debug Log ===
+Generated: 21-Oct-2025 20:06:37
+
+  BEM Iteration for r=1.3 m:
+    Initial: a=0.1000, a'=0.0100
+    Iter 1: phi=77.93°, alpha=68.43°, CL=0.270, CD=1.186
+    Cn=1.217, Ct=0.016, sigma=0.2938
+    a_new=0.0855, a'_new=0.0058
+    Final: a=0.0971, a'=0.0092
+    Iter 2: phi=77.97°, alpha=68.47°, CL=0.269, CD=1.187
+    Cn=1.217, Ct=0.016, sigma=0.2938
+    a_new=0.0855, a'_new=0.0057
+    Final: a=0.0948, a'=0.0085
+    Iter 3: phi=78.01°, alpha=68.51°, CL=0.268, CD=1.188
+    Cn=1.218, Ct=0.016, sigma=0.2938
+    a_new=0.0855, a'_new=0.0056
+    Final: a=0.0929, a'=0.0079
+    Converged in 16 iterations
+Station 1 (r=1.3 m):
+  a=0.0860, a'=0.0056, phi=78.16°, alpha=68.66°
+  CL=0.265, CD=1.192, Cn=1.221, Ct=0.015
+  V_rel=9.3 m/s, dT=1.4e+02 N/m, dQ=2.2e+00 N·m/m, dP=3.2e+00 W/m
+  dCP=5.86e-03, dCT=2.55e+00
+
+  BEM Iteration for r=2.3 m:
+    Initial: a=0.1000, a'=0.0100
+    Iter 1: phi=69.07°, alpha=59.57°, CL=0.471, CD=0.986
+    Cn=1.089, Ct=0.088, sigma=0.1614
+    a_new=0.0480, a'_new=0.0107
+    Final: a=0.0896, a'=0.0101
+    Iter 2: phi=69.28°, alpha=59.78°, CL=0.466, CD=0.991
+    Cn=1.092, Ct=0.086, sigma=0.1614
+    a_new=0.0479, a'_new=0.0106
+    Final: a=0.0813, a'=0.0102
+    Iter 3: phi=69.45°, alpha=59.95°, CL=0.462, CD=0.995
+    Cn=1.094, Ct=0.084, sigma=0.1614
+    a_new=0.0479, a'_new=0.0104
+    Final: a=0.0746, a'=0.0103
+    Converged in 22 iterations
+Station 2 (r=2.3 m):
+  a=0.0483, a'=0.0099, phi=70.12°, alpha=60.62°
+  CL=0.447, CD=1.010, Cn=1.102, Ct=0.077
+  V_rel=10.1 m/s, dT=1.5e+02 N/m, dQ=2.4e+01 N·m/m, dP=3.5e+01 W/m
+  dCP=6.36e-02, dCT=2.66e+00
+
+  BEM Iteration for r=3.5 m:
+    Initial: a=0.1000, a'=0.0100
+    Iter 1: phi=60.42°, alpha=50.92°, CL=0.668, CD=0.791
+    Cn=1.017, Ct=0.190, sigma=0.1042
+    a_new=0.0338, a'_new=0.0117
+    Final: a=0.0868, a'=0.0103
+    Iter 2: phi=60.77°, alpha=51.27°, CL=0.660, CD=0.798
+    Cn=1.019, Ct=0.186, sigma=0.1042
+    a_new=0.0337, a'_new=0.0115
+    Final: a=0.0762, a'=0.0106
+    Iter 3: phi=61.05°, alpha=51.55°, CL=0.653, CD=0.805
+    Cn=1.020, Ct=0.182, sigma=0.1042
+    a_new=0.0336, a'_new=0.0113
+    Final: a=0.0676, a'=0.0107
+    Converged in 24 iterations
+Station 3 (r=3.5 m):
+  a=0.0334, a'=0.0107, phi=62.13°, alpha=52.63°
+  CL=0.629, CD=0.829, Cn=1.027, Ct=0.168
+  V_rel=10.9 m/s, dT=1.5e+02 N/m, dQ=8.6e+01 N·m/m, dP=1.3e+02 W/m
+  dCP=2.30e-01, dCT=2.77e+00
+
+  BEM Iteration for r=5.5 m:
+    Initial: a=0.1000, a'=0.0100
+    Iter 1: phi=48.12°, alpha=38.62°, CL=0.947, CD=0.512
+    Cn=1.014, Ct=0.363, sigma=0.0683
+    a_new=0.0303, a'_new=0.0126
+    Final: a=0.0861, a'=0.0105
+    Iter 2: phi=48.54°, alpha=39.04°, CL=0.937, CD=0.522
+    Cn=1.012, Ct=0.357, sigma=0.0683
+    a_new=0.0298, a'_new=0.0124
+    Final: a=0.0748, a'=0.0109
+    Iter 3: phi=48.88°, alpha=39.38°, CL=0.930, CD=0.530
+    Cn=1.010, Ct=0.352, sigma=0.0683
+    a_new=0.0295, a'_new=0.0123
+    Final: a=0.0657, a'=0.0112
+    Converged in 24 iterations
+Station 4 (r=5.5 m):
+  a=0.0286, a'=0.0117, phi=50.23°, alpha=40.73°
+  CL=0.899, CD=0.560, Cn=1.006, Ct=0.332
+  V_rel=12.6 m/s, dT=2.1e+02 N/m, dQ=3.7e+02 N·m/m, dP=5.5e+02 W/m
+  dCP=9.92e-01, dCT=3.75e+00
+
+  BEM Iteration for r=7.5 m:
+    Initial: a=0.1000, a'=0.0100
+    Iter 1: phi=39.21°, alpha=29.71°, CL=1.149, CD=0.311
+    Cn=1.087, Ct=0.485, sigma=0.0500
+    a_new=0.0329, a'_new=0.0125
+    Final: a=0.0866, a'=0.0105
+    Iter 2: phi=39.61°, alpha=30.11°, CL=1.140, CD=0.320
+    Cn=1.082, Ct=0.480, sigma=0.0500
+    a_new=0.0322, a'_new=0.0124
+    Final: a=0.0757, a'=0.0109
+    Iter 3: phi=39.93°, alpha=30.43°, CL=1.133, CD=0.327
+    Cn=1.079, Ct=0.476, sigma=0.0500
+    a_new=0.0317, a'_new=0.0122
+    Final: a=0.0669, a'=0.0111
+    Converged in 25 iterations
+Station 5 (r=7.5 m):
+  a=0.0300, a'=0.0117, phi=41.28°, alpha=31.78°
+  CL=1.102, CD=0.358, Cn=1.064, Ct=0.458
+  V_rel=14.7 m/s, dT=3.0e+02 N/m, dQ=9.5e+02 N·m/m, dP=1.4e+03 W/m
+  dCP=2.53e+00, dCT=5.38e+00
+
+  BEM Iteration for r=9.3 m:
+    Initial: a=0.1000, a'=0.0100
+    Iter 1: phi=33.17°, alpha=23.67°, CL=1.266, CD=0.181
+    Cn=1.159, Ct=0.541, sigma=0.0487
+    a_new=0.0451, a'_new=0.0146
+    Final: a=0.0890, a'=0.0109
+    Iter 2: phi=33.46°, alpha=23.96°, CL=1.266, CD=0.186
+    Cn=1.158, Ct=0.543, sigma=0.0487
+    a_new=0.0444, a'_new=0.0146
+    Final: a=0.0801, a'=0.0117
+    Iter 3: phi=33.70°, alpha=24.20°, CL=1.264, CD=0.190
+    Cn=1.157, Ct=0.543, sigma=0.0487
+    a_new=0.0438, a'_new=0.0145
+    Final: a=0.0728, a'=0.0122
+    Converged in 24 iterations
+
+=== DEBUG: Total Quantities ===
+Total Thrust: 2.65e+05 N
+Total Torque: 1.47e+06 N·m
+Total Power: 2.15e+06 W
+Rotor Area: 7.24e+03 m²
+Wind Speed: 10.0 m/s
+Air Density: 1.10 kg/m³
+CP = 5.40e-01
+CT = 6.66e-01
+
+
+=== Analysis Complete ===
