@@ -1,4 +1,4 @@
-function [CP_max, optimal_conditions] = Deliverable3(V_wind, lambda_min, lambda_max, lambda_step, pitch_min, pitch_max, pitch_step)
+function [CP_max, optimal_conditions] = Deliverable3_Experimental(V_wind, lambda_min, lambda_max, lambda_step, pitch_min, pitch_max, pitch_step)
 % DELIVERABLE3 Wind Turbine 2D CP Optimization
 % Finds maximum power coefficient by varying tip speed ratio and pitch angle
 % Usage: [CP_max, optimal_conditions] = Deliverable3(10, 3, 12, 0.5, -5, 15, 2);
@@ -39,13 +39,36 @@ function [CP_max, optimal_conditions] = Deliverable3(V_wind, lambda_min, lambda_
     
     fprintf('Performing 2D CP optimization...\n');
     
+    % Debug logging (disabled by default). Set DEBUG=true to enable.
+    DEBUG = false;
+    DEBUG_FILE = 'Deliverable3_DebugLog.txt';
+    if DEBUG
+        debugInit(DEBUG_FILE, 'j k i lambda pitch r c a a_prime CL CD Cn Ct V_rel dT dQ dP');
+    end
     blade_profile = data.blade.profile;
     % Precompute invariants for clarity and speed
-    n_stations = height(blade_profile); % number of spanwise blade stations (rows in profile)
     r_stations = blade_profile.DistanceFromCenterOfRotation / 1000; % station radii [m]
     chord_m = blade_profile.ChordLength / 1000; % chord lengths [m]
     twist_deg_vec = blade_profile.BladeTwist; % twist [deg]
     airfoil_raw = data.blade.profile.Airfoil; % raw airfoil labels
+
+    % Exclude inner hub region: remove stations with r < hub radius
+    HUB_EXCLUDE = true;
+    if isfield(data.turbine.performance, 'hubRadius')
+        hub_radius = data.turbine.performance.hubRadius; % [m]
+    elseif isfield(data.turbine.performance, 'hubDiameter')
+        hub_radius = data.turbine.performance.hubDiameter / 2; % assume meters
+    else
+        hub_radius = 0.2 * R; % fallback: 20% of rotor radius
+    end
+    if HUB_EXCLUDE
+        use_idx = r_stations >= hub_radius;
+        r_stations = r_stations(use_idx);
+        chord_m = chord_m(use_idx);
+        twist_deg_vec = twist_deg_vec(use_idx);
+        airfoil_raw = airfoil_raw(use_idx);
+    end
+    n_stations = numel(r_stations); % number of spanwise blade stations (rows in profile)
     B = 3;
     
     total_iterations = n_lambda * n_pitch;
@@ -73,11 +96,21 @@ function [CP_max, optimal_conditions] = Deliverable3(V_wind, lambda_min, lambda_
                 lambda_r = lambda * r / R; % local tip-speed ratio at radius r
                 
                 [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, twist, r, c, ...
-                    lambda_r, V_wind, omega_rad, pitch_rad, data, rho, data.materials.air.viscosity);
+                    lambda_r, V_wind, omega_rad, pitch_rad, data, rho, data.materials.air.viscosity, B, R);
+                
+                % Apply Prandtl tip and root loss factor F to sectional forces
+                F = prandtlLossFactor(B, r, R, lambda_r, a, a_prime);
+                Cn = F * Cn;
+                Ct = F * Ct;
                 
                 dT(i) = 0.5 * rho * V_rel^2 * c * Cn;
                 dQ(i) = 0.5 * rho * V_rel^2 * c * Ct * r;
                 dP(i) = dQ(i) * omega_rad;
+                
+                if DEBUG
+                    debugLog(DEBUG_FILE, '%d %d %d %.3f %.2f %.3f %.3f %.6f %.6f %.6f %.6f %.6f %.6f %.6f %.6f %.6f %.6f\n', ...
+                        j, k, i, lambda, pitch_angle, r, c, a, a_prime, CL, CD, Cn, Ct, V_rel, dT(i), dQ(i), dP(i));
+                end
             end
             
             T_total = B * trapz(r_stations, dT);
@@ -127,19 +160,68 @@ function [CP_max, optimal_conditions] = Deliverable3(V_wind, lambda_min, lambda_
     fprintf('\n2D optimization complete!\n');
 end
 
-% Debug helpers removed
+function F = prandtlLossFactor(B, r, R, lambda_r, a, a_prime)
+% Prandtl tip and root loss correction for axial/tangential induction
+% Returns a factor F in (0,1] applied to normal/tangential coefficients
+    % Guard small angles; compute inflow angle from λ_r, a, a_prime
+    phi = atan((1 - a) / ((1 + a_prime) * lambda_r + eps));
+    sphi = sin(abs(phi)) + eps; % avoid division by zero
+    mu = r / R;                 % nondimensional radius
+    f_tip = (B/2) * (1 - mu) / sphi;
+    f_root = (B/2) * (mu) / sphi;
+    F_tip = (2/pi) * acos(exp(-max(0, f_tip)));
+    F_root = (2/pi) * acos(exp(-max(0, f_root)));
+    F = max(1e-3, F_tip * F_root);
+end
+
+function debugInit(filePath, header)
+% Initialize a debug log file with column header
+    fid = fopen(filePath, 'w');
+    if fid ~= -1
+        fprintf(fid, '%s\n', header);
+        fclose(fid);
+    end
+end
+
+function debugLog(filePath, fmt, varargin)
+% Append a single formatted line to the debug log; also echo to console
+    fid = fopen(filePath, 'a');
+    if fid ~= -1
+        fprintf(fid, fmt, varargin{:});
+        fclose(fid);
+    end
+    fprintf(fmt, varargin{:});
+end
 
 function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, c, twist_rad, perf_data, lambda_r, V_wind, omega_rad, pitch_rad)
 % Closed-form induction factors and sectional loads (no iteration)
     a = 1/3;
     a_prime = -0.5 + 0.5 * sqrt(1 + (4/(lambda_r^2)) * a * (1 - a));
 
+    % Optional cap on tangential induction to avoid runaway V_rel at high λ
+    CAP_A_PRIME = true; A_PRIME_MAX = 0.3; STRICT_A_PRIME_ZERO = true;
+    if CAP_A_PRIME
+        a_prime = min(a_prime, A_PRIME_MAX);
+    end
+    if STRICT_A_PRIME_ZERO
+        a_prime = 0; % strongest stabilizer (classic optimum assumption)
+    end
+
     phi = atan((1 - a) / ((1 + a_prime) * lambda_r));
     alpha = phi - (twist_rad + pitch_rad);
     alpha_deg = rad2deg(alpha);
 
-    CL = interp1(perf_data.AoA, perf_data.CL, alpha_deg, 'linear', 'extrap');
-    CD = interp1(perf_data.AoA, perf_data.CD, alpha_deg, 'linear', 'extrap');
+    % Clamp AoA to measured polar range (no extrapolation) and cap polars
+    aoa = perf_data.AoA; clv = perf_data.CL; cdv = perf_data.CD;
+    [aoa_sorted, idx] = sort(aoa);
+    cl_sorted = clv(idx); cd_sorted = cdv(idx);
+    aoa_min = aoa_sorted(1); aoa_max = aoa_sorted(end);
+    alpha_clamped = min(max(alpha_deg, aoa_min), aoa_max);
+    CL = interp1(aoa_sorted, cl_sorted, alpha_clamped, 'linear');
+    CD = interp1(aoa_sorted, cd_sorted, alpha_clamped, 'linear');
+    % Cap extreme coefficients (tunable)
+    CL = max(-1.5, min(1.5, CL));
+    CD = max(0.0, min(1.2, CD));
 
     s = sin(phi); c = cos(phi);
     Cn = CL * c + CD * s;
@@ -151,6 +233,15 @@ end
 function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, twist_rad, lambda_r, V_wind, omega_rad, pitch_rad, rho, mu)
     a = 1/3;
     a_prime = -0.5 + 0.5 * sqrt(1 + (4/(lambda_r^2)) * a * (1 - a));
+
+    % Optional cap on tangential induction
+    CAP_A_PRIME = true; A_PRIME_MAX = 0.3; STRICT_A_PRIME_ZERO = true;
+    if CAP_A_PRIME
+        a_prime = min(a_prime, A_PRIME_MAX);
+    end
+    if STRICT_A_PRIME_ZERO
+        a_prime = 0;
+    end
     phi = atan((1 - a) / ((1 + a_prime) * lambda_r));
     alpha = phi - (twist_rad + pitch_rad); %#ok<NASGU>
     V_rel = sqrt((V_wind*(1-a))^2 + (omega_rad*r*(1+a_prime))^2);
@@ -226,9 +317,10 @@ function create2DOptimizationPlot(lambda_range, pitch_range, CP_matrix, CT_matri
     fprintf('2D optimization results visualization saved as 2D_CP_Optimization_Results.png\n');
 end
 
-function [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, twist_deg, r, c, lambda_r, V_wind, omega_rad, pitch_rad, data, rho, mu)
+function [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, twist_deg, r, c, lambda_r, V_wind, omega_rad, pitch_rad, data, rho, mu, B, R)
     airfoil_name = regexprep(airfoil, '\s+', '');
     airfoil_name = regexprep(airfoil_name, '[-–—]', '_');
+    USE_ITERATIVE_BEM = true; % toggle momentum-consistent a, a_prime
     if strcmpi(airfoil_name, 'circle')
         twist_rad = deg2rad(twist_deg);
         [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, twist_rad, ...
@@ -236,7 +328,50 @@ function [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, t
     else
         perf_data = data.airfoilPerformance.(airfoil_name);
         twist_rad = deg2rad(twist_deg);
-        [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, c, twist_rad, perf_data, ...
-            lambda_r, V_wind, omega_rad, pitch_rad);
+        if USE_ITERATIVE_BEM
+            [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMIterative(r, c, twist_rad, perf_data, ...
+                lambda_r, V_wind, omega_rad, pitch_rad, B, R, rho, mu);
+        else
+            [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, c, twist_rad, perf_data, ...
+                lambda_r, V_wind, omega_rad, pitch_rad);
+        end
     end
+end
+
+function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMIterative(r, c, twist_rad, perf_data, lambda_r, V_wind, omega_rad, pitch_rad, B, R, rho, mu)
+% Momentum-consistent iterative BEM with Prandtl losses and AoA clamp
+    a = 0.1; a_prime = 0.01;
+    max_iter = 50; tol = 1e-4; relax = 0.5;
+    for it = 1:max_iter
+        phi = atan((1 - a) / ((1 + a_prime) * lambda_r + eps));
+        alpha_deg = rad2deg(phi - (twist_rad + pitch_rad));
+        [aoa_sorted, idx] = sort(perf_data.AoA); cl_sorted = perf_data.CL(idx); cd_sorted = perf_data.CD(idx);
+        alpha_clamped = min(max(alpha_deg, aoa_sorted(1)), aoa_sorted(end));
+        CL = interp1(aoa_sorted, cl_sorted, alpha_clamped, 'linear');
+        CD = interp1(aoa_sorted, cd_sorted, alpha_clamped, 'linear');
+        s = sin(phi); cphi = cos(phi);
+        Cn = CL * cphi + CD * s; Ct = CL * s - CD * cphi;
+        F = prandtlLossFactor(B, r, R, lambda_r, a, a_prime);
+        sigma = (B * c) / (2*pi*r + eps);
+        a_new = 1 / (1 + (4*F*s*s)/(sigma * max(1e-8, Cn)));
+        a_prime_new = 1 / ((4*F*s*cphi)/(sigma * max(1e-8, Ct)) - 1);
+        a_new = max(0, min(0.5, a_new));
+        a_prime_new = max(0, min(0.5, a_prime_new));
+        a = a + relax*(a_new - a);
+        a_prime = a_prime + relax*(a_prime_new - a_prime);
+        if abs(a_new - a) < tol && abs(a_prime_new - a_prime) < tol
+            break;
+        end
+    end
+    phi = atan((1 - a) / ((1 + a_prime) * lambda_r + eps));
+    alpha_deg = rad2deg(phi - (twist_rad + pitch_rad));
+    [aoa_sorted, idx] = sort(perf_data.AoA); cl_sorted = perf_data.CL(idx); cd_sorted = perf_data.CD(idx);
+    alpha_clamped = min(max(alpha_deg, aoa_sorted(1)), aoa_sorted(end));
+    CL = interp1(aoa_sorted, cl_sorted, alpha_clamped, 'linear');
+    CD = interp1(aoa_sorted, cd_sorted, alpha_clamped, 'linear');
+    s = sin(phi); cphi = cos(phi);
+    Cn = CL * cphi + CD * s; Ct = CL * s - CD * cphi;
+    F = prandtlLossFactor(B, r, R, lambda_r, a, a_prime);
+    Cn = F * Cn; Ct = F * Ct;
+    V_rel = sqrt((V_wind*(1-a))^2 + (omega_rad*r*(1+a_prime))^2);
 end

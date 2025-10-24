@@ -9,9 +9,16 @@ function [CP, CT] = Deliverable1()
     fprintf('Extracting wind turbine parameters...\n');
     data = ParameterExtraction();
     
-    V_wind = 10;
-    omega = 14;
-    pitch_angle = 0;
+    % Use predefined defaults if available
+    if isfield(data, 'deliverables') && isfield(data.deliverables, 'part1')
+        V_wind = data.deliverables.part1.V_wind;
+        omega = data.deliverables.part1.omega_rpm;
+        pitch_angle = data.deliverables.part1.pitch_deg;
+    else
+        V_wind = 10;
+        omega = 14;
+        pitch_angle = 0;
+    end
     
     fprintf('\nOperating Conditions:\n');
     fprintf('  Wind velocity: %.1f m/s\n', V_wind);
@@ -45,33 +52,36 @@ function [CP, CT] = Deliverable1()
     dP = zeros(n_stations, 1);
     B = 3;
     
+    % Constant inputs precomputed once
+    pitch_rad = deg2rad(pitch_angle);
+    
+    % Iterate over blade stations to accumulate sectional loads and power
     for i = 1:n_stations
         r = r_stations(i);
-        c = blade_profile.ChordLength(i) / 1000;
-        twist = blade_profile.BladeTwist(i);
+        c = blade_profile.ChordLength(i) / 1000; % converts to meters
+        twist = blade_profile.BladeTwist(i); % degrees (geometric twist)
         airfoil = blade_profile.Airfoil{i};
         
-        lambda_r = lambda * r / R;
+        lambda_r = lambda * r / R; % local tip-speed ratio at radius r
         
-        [a, a_prime, CL, CD, Cn, Ct] = solveBEMIteration(r, c, twist, airfoil, ...
-                                                         lambda_r, V_wind, omega_rad, ...
-                                                         data.airfoilPerformance, rho, ...
-                                                         data.materials.air.viscosity, pitch_angle);
+        % Section aerodynamics (dispatches circle vs airfoil polars)
+        [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, twist, r, c, ...
+            lambda_r, V_wind, omega_rad, pitch_rad, data, rho, data.materials.air.viscosity);
         
-        phi = atan((1-a)*V_wind / ((1+a_prime)*omega_rad*r));
-        V_rel = sqrt((V_wind*(1-a))^2 + (omega_rad*r*(1+a_prime))^2);
         
-        dT(i) = 0.5 * rho * V_rel^2 * c * Cn;
-        dQ(i) = 0.5 * rho * V_rel^2 * c * Ct * r;
-        dP(i) = dQ(i) * omega_rad;
         
-        dCP(i) = dP(i) / (0.5 * rho * V_wind^3);
-        dCT(i) = dT(i) / (0.5 * rho * V_wind^2);
+        % Elemental thrust, torque, and power contributions
+        dT(i) = 0.5 * rho * V_rel^2 * c * Cn; % thrust per unit length (66)
+        dQ(i) = 0.5 * rho * V_rel^2 * c * Ct * r; % torque per unit length (68)
+        dP(i) = dQ(i) * omega_rad; % power per unit length (torque * rotational speed) (69)
+        
+        dCP(i) = dP(i) / (0.5 * rho * V_wind^3); % power coefficient per unit length
+        dCT(i) = dT(i) / (0.5 * rho * V_wind^2); % thrust coefficient per unit length
     end
     
-    T = B * trapz(r_stations, dT);
-    Q = B * trapz(r_stations, dQ);
-    P = B * trapz(r_stations, dP);
+    T = B * trapz(r_stations, dT); % total thrust
+    Q = B * trapz(r_stations, dQ); % total torque
+    P = B * trapz(r_stations, dP); % total power
     
     CP = P / (0.5 * rho * A * V_wind^3);
     CT = T / (0.5 * rho * A * V_wind^2);
@@ -84,86 +94,96 @@ function [CP, CT] = Deliverable1()
     fprintf('Thrust: %.1f kN\n', T/1000);
     fprintf('Torque: %.1f kN·m\n', Q/1000);
     
-    createVisualization(r_stations, dCP, dCT, CP, CT, lambda);
+    createVisualization(r_stations, dCP, dCT, CP, CT, lambda, V_wind, omega);
     fprintf('\nAnalysis complete!\n');
 end
 
-function [a, a_prime, CL, CD, Cn, Ct] = solveBEMIteration(r, c, twist, airfoil, lambda_r, V_wind, omega_rad, airfoilData, rho, mu, pitch_angle)
-% Robust BEM iteration solver
-    
-    airfoil_name = strrep(airfoil, '-', '_');
-    if isfield(airfoilData, airfoil_name)
-        perf_data = airfoilData.(airfoil_name);
-    else
-        perf_data = airfoilData.DU96_W_180;
-    end
-    
-    a = 0.1;
-    a_prime = 0.01;
-    
-    max_iter = 50;
-    tolerance = 1e-4;
-    relaxation = 0.2;
-    
-    for iter = 1:max_iter
-        a_old = a;
-        a_prime_old = a_prime;
-        
-        phi = atan((1-a)*V_wind / ((1+a_prime)*omega_rad*r));
-        alpha = phi - deg2rad(twist) - deg2rad(pitch_angle);
-        alpha_deg = rad2deg(alpha);
-        
-        CL = interp1(perf_data.AoA, perf_data.CL, alpha_deg, 'linear', 'extrap');
-        CD = interp1(perf_data.AoA, perf_data.CD, alpha_deg, 'linear', 'extrap');
-        
-        Cn = CL * cos(phi) + CD * sin(phi);
-        Ct = CL * sin(phi) - CD * cos(phi);
-        
-        sigma = c / (2 * pi * r);
-        
-        if Cn > 0 && sigma > 0
-            a_new = 1 / (1 + 4*sin(phi)^2 / (sigma * Cn));
-        else
-            a_new = 0;
-        end
-        
-        if Ct > 0 && sigma > 0
-            a_prime_new = 1 / (4*sin(phi)*cos(phi) / (sigma * Ct) - 1);
-        else
-            a_prime_new = 0;
-        end
-        
-        a_new = max(0, min(a_new, 0.5));
-        a_prime_new = max(0, min(a_prime_new, 1.0));
-        
-        a = a + relaxation * (a_new - a);
-        a_prime = a_prime + relaxation * (a_prime_new - a_prime);
-        
-        if abs(a - a_old) < tolerance && abs(a_prime - a_prime_old) < tolerance
-            break;
-        end
-        
-        if iter > 10 && (abs(a - a_old) > 0.1 || abs(a_prime - a_prime_old) > 0.1)
-            relaxation = relaxation * 0.9;
-        end
-    end
-    
-    phi = atan((1-a)*V_wind / ((1+a_prime)*omega_rad*r));
-    alpha = phi - deg2rad(twist) - deg2rad(pitch_angle);
-    alpha_deg = rad2deg(alpha);
-    
+function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, c, twist_rad, perf_data, lambda_r, V_wind, omega_rad, pitch_rad)
+% Closed-form induction factors and sectional loads (no iteration)
+% Inputs:
+%   r           - radial position [m]
+%   c           - local chord [m]
+%   twist_rad   - local geometric twist [rad]
+%   perf_data   - airfoil polar struct with fields .AoA, .CL, .CD
+%   lambda_r    - local tip-speed ratio (λ * r / R)
+%   V_wind      - freestream wind speed [m/s]
+%   omega_rad   - rotor speed [rad/s]
+%   pitch_rad   - blade pitch angle [rad]
+% Outputs:
+%   a, a_prime  - axial and tangential induction factors
+%   CL, CD      - section lift and drag coefficients at computed α
+%   Cn, Ct      - normal and tangential force coefficients
+%   V_rel       - relative velocity magnitude at section [m/s]
+
+    % Assumed momentum-limit induction with closed-form a_prime from λ_r
+    a = 1/3;
+    a_prime = -0.5 + 0.5 * sqrt(1 + (4/(lambda_r^2)) * a * (1 - a));
+
+    % Inflow angle and angle of attack
+    phi = atan((1 - a) / ((1 + a_prime) * lambda_r));
+    alpha = phi - (twist_rad + pitch_rad); % angle of attack
+    alpha_deg = rad2deg(alpha); % angle of attack in degrees
+
+    % Interpolate section polars (for circle, CD is flat and CL=0 by construction)
     CL = interp1(perf_data.AoA, perf_data.CL, alpha_deg, 'linear', 'extrap');
     CD = interp1(perf_data.AoA, perf_data.CD, alpha_deg, 'linear', 'extrap');
+
+    % Resolve to normal and tangential force coefficients
+    s = sin(phi); c = cos(phi);
+    Cn = CL * c + CD * s;
+    Ct = CL * s - CD * c;
+
+    % Relative velocity at the section
+    V_rel = sqrt((V_wind*(1-a))^2 + (omega_rad*r*(1+a_prime))^2);
+end
+
+function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, twist_rad, lambda_r, V_wind, omega_rad, pitch_rad, rho, mu)
+% Circle (cylinder) section: CL=0, CD from Re via empirical fit. Uses same BEM kinematics.
+    a = 1/3;
+    a_prime = -0.5 + 0.5 * sqrt(1 + (4/(lambda_r^2)) * a * (1 - a));
     
-    Cn = CL * cos(phi) + CD * sin(phi);
-    Ct = CL * sin(phi) - CD * cos(phi);
+    phi = atan((1 - a) / ((1 + a_prime) * lambda_r));
+    alpha = phi - (twist_rad + pitch_rad); %#ok<NASGU>
     
-    if iter == max_iter
-        fprintf('Warning: BEM did not converge at r=%.1f: a=%.3f, a''=%.3f\n', r, a, a_prime);
+    % Reynolds number at this station
+    V_rel = sqrt((V_wind*(1-a))^2 + (omega_rad*r*(1+a_prime))^2);
+    Re = max(1, rho * V_rel * c / mu);
+    CD = cylinderCDlocal(Re);
+    CL = 0;
+    
+    s = sin(phi); cphi = cos(phi);
+    Cn = CL * cphi + CD * s;
+    Ct = CL * s - CD * cphi;
+end
+
+function C_D = cylinderCDlocal(Re)
+% Drag coefficient for a smooth circular cylinder in cross-flow (empirical fit)
+    if Re < 2e5
+        C_D = 11 * Re.^(-0.75) + 0.9 * (1.0 - exp(-1000./Re)) + 1.2 * (1.0 - exp(-(Re./4500).^0.7));
+    elseif Re <= 5e5
+        C_D = 10.^(0.32*tanh(44.4504 - 8 * log10(Re)) - 0.238793158);
+    else
+        C_D = 0.1 * log10(Re) - 0.2533429;
     end
 end
 
-function createVisualization(r_stations, dCP, dCT, CP, CT, lambda)
+function [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, twist_deg, r, c, lambda_r, V_wind, omega_rad, pitch_rad, data, rho, mu)
+% Normalize airfoil name and dispatch to appropriate section solver
+    airfoil_name = regexprep(airfoil, '\s+', '');
+    airfoil_name = regexprep(airfoil_name, '[-–—]', '_');
+    if strcmpi(airfoil_name, 'circle')
+        twist_rad = deg2rad(twist_deg);
+        [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, twist_rad, ...
+            lambda_r, V_wind, omega_rad, pitch_rad, rho, mu);
+    else
+        perf_data = data.airfoilPerformance.(airfoil_name);
+        twist_rad = deg2rad(twist_deg);
+        [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, c, twist_rad, perf_data, ...
+            lambda_r, V_wind, omega_rad, pitch_rad);
+    end
+end
+
+function createVisualization(r_stations, dCP, dCT, CP, CT, lambda, V_wind, omega)
 % Create visualization of the analysis results
     
     figure('Position', [100, 100, 1200, 800]);
@@ -174,10 +194,6 @@ function createVisualization(r_stations, dCP, dCT, CP, CT, lambda)
         xlabel('Radius [m]');
         ylabel('Local C_P');
         title('Local Power Coefficient Distribution');
-        text(0.95, 0.05, sprintf('C_P = ∫c_p dr = %.4f', CP), 'Units', 'normalized', ...
-             'FontSize', 12, 'FontWeight', 'bold', 'BackgroundColor', 'white', ...
-             'EdgeColor', 'black', 'Margin', 2, 'HorizontalAlignment', 'right', ...
-             'VerticalAlignment', 'bottom');
         grid on;
         
         subplot(2, 2, 2);
@@ -185,10 +201,6 @@ function createVisualization(r_stations, dCP, dCT, CP, CT, lambda)
         xlabel('Radius [m]');
         ylabel('Local C_T');
         title('Local Thrust Coefficient Distribution');
-        text(0.95, 0.05, sprintf('C_T = ∫c_t dr = %.4f', CT), 'Units', 'normalized', ...
-             'FontSize', 12, 'FontWeight', 'bold', 'BackgroundColor', 'white', ...
-             'EdgeColor', 'black', 'Margin', 2, 'HorizontalAlignment', 'right', ...
-             'VerticalAlignment', 'bottom');
         grid on;
         
         subplot(2, 2, 3);
@@ -247,8 +259,8 @@ function createVisualization(r_stations, dCP, dCT, CP, CT, lambda)
     text(0.1, 0.8, sprintf('Tip Speed Ratio: %.3f', lambda), 'FontSize', 14, 'FontWeight', 'bold');
     text(0.1, 0.6, sprintf('C_P = %.4f', CP), 'FontSize', 14, 'FontWeight', 'bold', 'Color', 'blue');
     text(0.1, 0.4, sprintf('C_T = %.4f', CT), 'FontSize', 14, 'FontWeight', 'bold', 'Color', 'red');
-    text(0.1, 0.2, 'Wind Velocity: 10 m/s', 'FontSize', 12);
-    text(0.1, 0.1, 'Rotational Speed: 14 rpm', 'FontSize', 12);
+    text(0.1, 0.2, sprintf('Wind Velocity: %.1f m/s', V_wind), 'FontSize', 12);
+    text(0.1, 0.1, sprintf('Rotational Speed: %.1f rpm', omega), 'FontSize', 12);
     axis off;
     title('Analysis Results Summary');
     

@@ -1,19 +1,26 @@
 function [CP_max, optimal_conditions] = Deliverable2(V_wind, lambda, pitch_min, pitch_max, pitch_step)
 % DELIVERABLE2 Wind Turbine Pitch Angle Optimization
 % Finds maximum power coefficient by varying pitch angle at fixed wind speed and tip speed ratio
-% Usage: [CP_max, optimal_conditions] = Deliverable2(10, 7, -5, 15, 1);
+% Usage: [CP_max, optimal_conditions] = Deliverable2(8, 6.91, -15, 15, 1);
 
     clc; close all;
     fprintf('=== Wind Turbine Pitch Angle Optimization ===\n\n');
     
-    fprintf('Optimizing CP for:\n');
-    fprintf('  Wind velocity: %.1f m/s\n', V_wind);
-    fprintf('  Tip speed ratio: %.1f\n', lambda);
-    fprintf('  Pitch angle range: %.1f to %.1f degrees\n', pitch_min, pitch_max);
-    fprintf('  Step size: %.1f degrees\n\n', pitch_step);
-    
     fprintf('Extracting wind turbine parameters...\n');
     data = ParameterExtraction();
+
+    % Defaults from predefined deliverables when inputs are omitted
+    if nargin < 1 || isempty(V_wind), V_wind = data.deliverables.part2.V_wind; end
+    if nargin < 2 || isempty(lambda), lambda = data.deliverables.part2.lambda; end
+    if nargin < 3 || isempty(pitch_min), pitch_min = -15; end
+    if nargin < 4 || isempty(pitch_max), pitch_max = 15; end
+    if nargin < 5 || isempty(pitch_step), pitch_step = 1; end
+
+    fprintf('Optimizing CP for:\n');
+    fprintf('  Wind velocity: %.1f m/s\n', V_wind);
+    fprintf('  Tip speed ratio: %.2f\n', lambda);
+    fprintf('  Pitch angle range: %.1f to %.1f degrees\n', pitch_min, pitch_max);
+    fprintf('  Step size: %.1f degrees\n\n', pitch_step);
     
     R = data.turbine.performance.rotorRadius;
     A = data.turbine.calculated.rotorArea;
@@ -28,8 +35,13 @@ function [CP_max, optimal_conditions] = Deliverable2(V_wind, lambda, pitch_min, 
     
     fprintf('Performing pitch angle optimization...\n');
     blade_profile = data.blade.profile;
-    n_stations = height(blade_profile);
-    r_stations = blade_profile.DistanceFromCenterOfRotation / 1000;
+    % Precompute station-wise invariants for clarity and speed
+    n_stations = height(blade_profile); % number of spanwise blade stations (rows in profile)
+    r_stations = blade_profile.DistanceFromCenterOfRotation / 1000; % station radii [m]
+    chord_m = blade_profile.ChordLength / 1000; % chord lengths [m]
+    twist_deg_vec = blade_profile.BladeTwist; % twist [deg]
+    airfoil_raw = blade_profile.Airfoil; % raw airfoil labels
+    lambda_r_vec = lambda * r_stations / R; % local TSR at each station
     B = 3;
     
     % Calculate rotational velocity from tip speed ratio
@@ -45,21 +57,18 @@ function [CP_max, optimal_conditions] = Deliverable2(V_wind, lambda, pitch_min, 
         dQ = zeros(n_stations, 1);
         dP = zeros(n_stations, 1);
         
+        pitch_rad = deg2rad(pitch_angle);
         for i = 1:n_stations
             r = r_stations(i);
-            c = blade_profile.ChordLength(i) / 1000;
-            twist = blade_profile.BladeTwist(i);
-            airfoil = blade_profile.Airfoil{i};
+            c = chord_m(i);
+            twist = twist_deg_vec(i);
+            airfoil = airfoil_raw{i};
             
-            lambda_r = lambda * r / R;
+            lambda_r = lambda_r_vec(i); % local tip-speed ratio at radius r
             
-            [a, a_prime, CL, CD, Cn, Ct] = solveBEMIteration(r, c, twist, airfoil, ...
-                                                             lambda_r, V_wind, omega_rad, ...
-                                                             data.airfoilPerformance, rho, ...
-                                                             data.materials.air.viscosity, pitch_angle);
-            
-            phi = atan((1-a)*V_wind / ((1+a_prime)*omega_rad*r));
-            V_rel = sqrt((V_wind*(1-a))^2 + (omega_rad*r*(1+a_prime))^2);
+            % Section aerodynamics via helper (handles circle vs airfoil polars)
+            [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, twist, r, c, ...
+                lambda_r, V_wind, omega_rad, pitch_rad, data, rho, data.materials.air.viscosity);
             
             dT(i) = 0.5 * rho * V_rel^2 * c * Cn;
             dQ(i) = 0.5 * rho * V_rel^2 * c * Ct * r;
@@ -105,78 +114,60 @@ function [CP_max, optimal_conditions] = Deliverable2(V_wind, lambda, pitch_min, 
     fprintf('\nPitch optimization complete!\n');
 end
 
-function [a, a_prime, CL, CD, Cn, Ct] = solveBEMIteration(r, c, twist, airfoil, lambda_r, V_wind, omega_rad, airfoilData, rho, mu, pitch_angle)
-% Robust BEM iteration solver
-    
-    airfoil_name = strrep(airfoil, '-', '_');
-    if isfield(airfoilData, airfoil_name)
-        perf_data = airfoilData.(airfoil_name);
-    else
-        perf_data = airfoilData.DU96_W_180;
-    end
-    
-    a = 0.1;
-    a_prime = 0.01;
-    
-    max_iter = 50;
-    tolerance = 1e-4;
-    relaxation = 0.2;
-    
-    for iter = 1:max_iter
-        a_old = a;
-        a_prime_old = a_prime;
-        
-        phi = atan((1-a)*V_wind / ((1+a_prime)*omega_rad*r));
-        alpha = phi - deg2rad(twist) - deg2rad(pitch_angle);
-        alpha_deg = rad2deg(alpha);
-        
-        CL = interp1(perf_data.AoA, perf_data.CL, alpha_deg, 'linear', 'extrap');
-        CD = interp1(perf_data.AoA, perf_data.CD, alpha_deg, 'linear', 'extrap');
-        
-        Cn = CL * cos(phi) + CD * sin(phi);
-        Ct = CL * sin(phi) - CD * cos(phi);
-        
-        sigma = c / (2 * pi * r);
-        
-        if Cn > 0 && sigma > 0
-            a_new = 1 / (1 + 4*sin(phi)^2 / (sigma * Cn));
-        else
-            a_new = 0;
-        end
-        
-        if Ct > 0 && sigma > 0
-            a_prime_new = 1 / (4*sin(phi)*cos(phi) / (sigma * Ct) - 1);
-        else
-            a_prime_new = 0;
-        end
-        
-        a_new = max(0, min(a_new, 0.5));
-        a_prime_new = max(0, min(a_prime_new, 1.0));
-        
-        a = a + relaxation * (a_new - a);
-        a_prime = a_prime + relaxation * (a_prime_new - a_prime);
-        
-        if abs(a - a_old) < tolerance && abs(a_prime - a_prime_old) < tolerance
-            break;
-        end
-        
-        if iter > 10 && (abs(a - a_old) > 0.1 || abs(a_prime - a_prime_old) > 0.1)
-            relaxation = relaxation * 0.9;
-        end
-    end
-    
-    phi = atan((1-a)*V_wind / ((1+a_prime)*omega_rad*r));
-    alpha = phi - deg2rad(twist) - deg2rad(pitch_angle);
+function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, c, twist_rad, perf_data, lambda_r, V_wind, omega_rad, pitch_rad)
+% Closed-form induction factors and sectional loads (no iteration)
+% Inputs:
+%   r, c           - local radius [m] and chord [m]
+%   twist_rad      - local geometric twist [rad]
+%   perf_data      - airfoil polars with .AoA, .CL, .CD
+%   lambda_r       - local tip-speed ratio (λ * r / R)
+%   V_wind         - freestream wind speed [m/s]
+%   omega_rad      - rotor speed [rad/s]
+%   pitch_rad      - blade pitch angle [rad]
+% Outputs:
+%   a, a_prime     - axial/tangential induction factors
+%   CL, CD         - section lift/drag coefficients at α
+%   Cn, Ct         - normal/tangential force coefficients
+%   V_rel          - relative velocity magnitude at section [m/s]
+
+    a = 1/3;
+    a_prime = -0.5 + 0.5 * sqrt(1 + (4/(lambda_r^2)) * a * (1 - a));
+
+    phi = atan((1 - a) / ((1 + a_prime) * lambda_r));
+    alpha = phi - (twist_rad + pitch_rad);
     alpha_deg = rad2deg(alpha);
-    
+
     CL = interp1(perf_data.AoA, perf_data.CL, alpha_deg, 'linear', 'extrap');
     CD = interp1(perf_data.AoA, perf_data.CD, alpha_deg, 'linear', 'extrap');
-    
-    Cn = CL * cos(phi) + CD * sin(phi);
-    Ct = CL * sin(phi) - CD * cos(phi);
-    
-    if iter == max_iter
-        fprintf('Warning: BEM did not converge at r=%.1f: a=%.3f, a''=%.3f\n', r, a, a_prime);
+
+    s = sin(phi); c = cos(phi);
+    Cn = CL * c + CD * s;
+    Ct = CL * s - CD * c;
+
+    V_rel = sqrt((V_wind*(1-a))^2 + (omega_rad*r*(1+a_prime))^2);
+end
+
+function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, twist_rad, lambda_r, V_wind, omega_rad, pitch_rad, rho, mu)
+    a = 1/3;
+    a_prime = -0.5 + 0.5 * sqrt(1 + (4/(lambda_r^2)) * a * (1 - a));
+    phi = atan((1 - a) / ((1 + a_prime) * lambda_r));
+    alpha = phi - (twist_rad + pitch_rad); %#ok<NASGU>
+    V_rel = sqrt((V_wind*(1-a))^2 + (omega_rad*r*(1+a_prime))^2);
+    Re = max(1, rho * V_rel * c / mu);
+    CD = cylinderCDlocal(Re);
+    CL = 0;
+    s = sin(phi); cphi = cos(phi);
+    Cn = CL * cphi + CD * s;
+    Ct = CL * s - CD * cphi;
+end
+
+function C_D = cylinderCDlocal(Re)
+    if Re < 2e5
+        C_D = 11 * Re.^(-0.75) + 0.9 * (1.0 - exp(-1000./Re)) + 1.2 * (1.0 - exp(-(Re./4500).^0.7));
+    elseif Re <= 5e5
+        C_D = 10.^(0.32*tanh(44.4504 - 8 * log10(Re)) - 0.238793158);
+    else
+        C_D = 0.1 * log10(Re) - 0.2533429;
     end
 end
 
@@ -213,4 +204,19 @@ function createPitchOptimizationPlot(pitch_range, CP_values, CT_values, optimal_
     
     saveas(gcf, 'Pitch_Optimization_Results.png');
     fprintf('Pitch optimization results visualization saved as Pitch_Optimization_Results.png\n');
+end
+
+function [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, twist_deg, r, c, lambda_r, V_wind, omega_rad, pitch_rad, data, rho, mu)
+    airfoil_name = regexprep(airfoil, '\s+', '');
+    airfoil_name = regexprep(airfoil_name, '[-–—]', '_');
+    if strcmpi(airfoil_name, 'circle')
+        twist_rad = deg2rad(twist_deg);
+        [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, twist_rad, ...
+            lambda_r, V_wind, omega_rad, pitch_rad, rho, mu);
+    else
+        perf_data = data.airfoilPerformance.(airfoil_name);
+        twist_rad = deg2rad(twist_deg);
+        [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, c, twist_rad, perf_data, ...
+            lambda_r, V_wind, omega_rad, pitch_rad);
+    end
 end
