@@ -56,14 +56,16 @@ function data = ParameterExtraction()
         data.deliverables.part4 = struct();
         data.deliverables.part4.V_wind = 14.6; % m/s
         
+        data.deliverables.part5 = struct();
+        data.deliverables.part5.lambda = 6.91; % Tip speed ratio for thrust calculation
+        data.deliverables.part5.pitch_deg = 0; % Pitch angle for thrust calculation
+        
         % Add metadata
         data.metadata = struct();
         data.metadata.extractionDate = datetime('now');
         data.metadata.sourceFolder = basePath;
         data.metadata.description = 'Wind turbine parameters extracted from Given Parameters folder';
 
-        % Build synthetic performance polars for circular root section (always present)
-        data.airfoilPerformance.circle = buildCirclePolars(data);
         
         fprintf('Parameter extraction completed successfully.\n');
         fprintf('Extracted data includes:\n');
@@ -76,53 +78,11 @@ function data = ParameterExtraction()
         fprintf('  - Predefined scenarios: parts 1-4 added\n');
         
     catch ME
-        error('Parameter extraction failed: %s', ME.message); %'
+        error('Parameter extraction failed: %s', ME.message); %
     end
 end
 
-function C_D = localCylinderCD(Re)
-% Drag coefficient for a smooth circular cylinder in cross-flow (empirical fit)
-    if Re < 2e5
-        C_D = 11 * Re.^(-0.75) + 0.9 * (1.0 - exp(-1000./Re)) + 1.2 * (1.0 - exp(-(Re./4500).^0.7));
-    elseif Re <= 5e5
-        C_D = 10.^(0.32*tanh(44.4504 - 8 * log10(Re)) - 0.238793158);
-    else
-        C_D = 0.1 * log10(Re) - 0.2533429;
-    end
-end
 
-function circlePerf = buildCirclePolars(data)
-% Build a simple synthetic polar table for a circular root section.
-% Assumes a 'circle' station exists in the blade profile.
-    % Locate the first station labeled 'circle' in the blade profile
-    profileTable = data.blade.profile;
-    circleIdx = find(strcmpi(profileTable.Airfoil, 'circle'), 1, 'first');
-
-    % Compute a representative CD for the cylinder at default op point
-    c_m = profileTable.ChordLength(circleIdx) / 1000; % chord in meters
-    r_m = profileTable.DistanceFromCenterOfRotation(circleIdx) / 1000; % radius in meters
-    rho = data.materials.air.density;
-    mu = data.materials.air.viscosity;
-    V0 = data.deliverables.part1.V_wind;
-    omega_rad = data.deliverables.part1.omega_rpm * 2 * pi / 60;
-    lambda_r = (omega_rad * r_m) / V0;
-    a = 1/3;
-    a_prime = -0.5 + 0.5 * sqrt(1 + (4/(lambda_r^2)) * a * (1 - a));
-    V_rel = sqrt((V0*(1-a))^2 + (omega_rad*r_m*(1+a_prime))^2);
-    Re = max(1, rho * V_rel * c_m / mu);
-    CD_cyl = localCylinderCD(Re);
-
-        % Create a constant-CL, constant-CD polar across AoA for compatibility
-        AoA = (-180:1:180)';
-        CL = zeros(size(AoA)); % cylinders produce negligible lift
-        CD = repmat(CD_cyl, size(AoA)); % drag approximated as constant vs AoA
-        CM = zeros(size(AoA));
-        perfTable = table(AoA, CL, CD, CM);
-
-    circlePerf = struct('data', perfTable, 'AoA', AoA, 'CL', CL, 'CD', CD, 'CM', CM, ...
-        'description', 'Synthetic cylinder polars: CL=0, CD from Re at default op point', ...
-        'numPoints', height(perfTable));
-end
 
 function bladeData = extractBladeProfile(filePath)
 % Extract blade profile data from CSV file
@@ -158,6 +118,7 @@ function towerData = extractTowerSpecs(filePath)
     towerData = struct();
     towerData.specs = towerTable;
     towerData.description = 'Tower specifications including height, diameter, and wall thickness';
+    towerData.dragCoefficient = 0.7; % Drag coefficient for cylindrical tower
     
     % Calculate additional parameters
     towerData.totalHeight = max(towerTable.Height_mm_) / 1000; % Convert to meters
@@ -256,16 +217,6 @@ function performanceData = extractAirfoilPerformance(basePath)
         end
     end
     
-    % Add synthetic performance entry for circular root section
-    performanceData.circle = struct();
-    performanceData.circle.type = 'circle';
-    performanceData.circle.data = table();
-    performanceData.circle.AoA = [];
-    performanceData.circle.CL = [];
-    performanceData.circle.CD = [];
-    performanceData.circle.CM = [];
-    performanceData.circle.description = 'Model-based cylinder (circle) section: CL=0, CD computed from Re';
-    performanceData.circle.numPoints = 0;
 
     fprintf('  Airfoil performance: %d airfoils extracted\n', length(fieldnames(performanceData)));
 end
@@ -288,12 +239,14 @@ function materialData = extractMaterialProperties()
     materialData.steel.density = 7850; % kg/m³
     materialData.steel.tensileStrength = 450e6; % Pa (450 MPa)
     materialData.steel.yieldStrength = 345e6; % Pa (345 MPa)
+    materialData.steel.youngsModulus = 200e9; % Pa (200 GPa)
     materialData.steel.description = 'Steel properties for structural calculations';
-    materialData.steel.units = struct('density', 'kg/m³', 'tensileStrength', 'Pa', 'yieldStrength', 'Pa');
+    materialData.steel.units = struct('density', 'kg/m³', 'tensileStrength', 'Pa', 'yieldStrength', 'Pa', 'youngsModulus', 'Pa');
     
     % Calculate additional steel properties
     materialData.steel.safetyFactor = 1.5; % Typical safety factor
     materialData.steel.allowableStress = materialData.steel.yieldStrength / materialData.steel.safetyFactor;
+    materialData.steel.enduranceLimitFactor = 0.5; % Factor for endurance limit calculation
     
     fprintf('  Material properties: Air and Steel (ASTM A572 Grade 50)\n');
 end
