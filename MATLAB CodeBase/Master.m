@@ -80,8 +80,8 @@ function runAllDeliverables()
     RUN_DELIVERABLE_4 = false;    % Rated Power Pitch Control
     RUN_DELIVERABLE_5 = false;    % Tower Deflection Analysis
     
-    PLOT_D1_RESULTS = true;      % D1: BEM Analysis Results
-    PLOT_D2_OPTIMIZATION = true; % D2: Pitch Optimization Plot
+    PLOT_D1_RESULTS = false;      % D1: BEM Analysis Results
+    PLOT_D2_OPTIMIZATION = false; % D2: Pitch Optimization Plot
     PLOT_D3_OPTIMIZATION = true; % D3: 2D Optimization Plot
     PLOT_D5_DEFLECTION = false;   % D5: Tower Deflection Plot
     PLOT_D5_MOHR = false;         % D5: Mohr Circle Plot
@@ -200,19 +200,11 @@ function [CP, CT] = Deliverable1()
 
     fprintf('=== Wind Turbine Analysis - Deliverable 1 ===\n\n');
     
-    fprintf('Extracting wind turbine parameters...\n');
     data = ParameterExtraction();
     
-    % Use predefined defaults if available
-    if isfield(data, 'deliverables') && isfield(data.deliverables, 'part1')
-        V_wind = data.deliverables.part1.V_wind;
-        omega = data.deliverables.part1.omega_rpm;
-        pitch_angle = data.deliverables.part1.pitch_deg;
-    else
-        V_wind = 10;
-        omega = 14;
-        pitch_angle = 0;
-    end
+    V_wind = data.deliverables.part1.V_wind;
+    omega = data.deliverables.part1.omega_rpm;
+    pitch_angle = data.deliverables.part1.pitch_deg;
     
     fprintf('\nOperating Conditions:\n');
     fprintf('  Wind velocity: %.1f m/s\n', V_wind);
@@ -253,7 +245,7 @@ function [CP, CT] = Deliverable1()
     dT = zeros(n_stations, 1);
     dQ = zeros(n_stations, 1);
     dP = zeros(n_stations, 1);
-    B = 3;
+    B = data.turbine.characteristics.blades;
     
     % Constant inputs precomputed once
     pitch_rad = deg2rad(pitch_angle);
@@ -321,7 +313,6 @@ function [CP_max, optimal_conditions] = Deliverable2(V_wind, lambda, pitch_min, 
 
     fprintf('=== Wind Turbine Pitch Angle Optimization ===\n\n');
     
-    fprintf('Extracting wind turbine parameters...\n');
     data = ParameterExtraction();
 
     % Defaults from predefined deliverables when inputs are omitted
@@ -361,7 +352,7 @@ function [CP_max, optimal_conditions] = Deliverable2(V_wind, lambda, pitch_min, 
     airfoil_raw = blade_profile.Airfoil(use_idx); % raw airfoil labels
     n_stations = numel(r_stations);
     lambda_r_vec = lambda * r_stations / R; % local TSR at each station
-    B = 3;
+    B = data.turbine.characteristics.blades;
     
     % Calculate rotational velocity from tip speed ratio
     omega_rad = (lambda * V_wind) / R;
@@ -450,7 +441,6 @@ function [CP_max, optimal_conditions] = Deliverable3(V_wind, lambda_min, lambda_
 
     fprintf('=== Wind Turbine 2D CP Optimization ===\n\n');
     
-    fprintf('Extracting wind turbine parameters...\n');
     data = ParameterExtraction();
 
     % Defaults from predefined deliverables when inputs are omitted
@@ -484,7 +474,6 @@ function [CP_max, optimal_conditions] = Deliverable3(V_wind, lambda_min, lambda_
     fprintf('Performing 2D CP optimization...\n');
     
     blade_profile = data.blade.profile;
-    % Precompute invariants for clarity and speed
     % Exclude hub region to avoid non-lifting root effects
     r_stations = blade_profile.DistanceFromCenterOfRotation / 1000; % station radii [m]
     hub_radius = data.turbine.performance.hubRadius;
@@ -494,7 +483,7 @@ function [CP_max, optimal_conditions] = Deliverable3(V_wind, lambda_min, lambda_
     twist_deg_vec = blade_profile.BladeTwist(use_idx); % twist [deg]
     airfoil_raw = blade_profile.Airfoil(use_idx); % raw airfoil labels
     n_stations = numel(r_stations);
-    B = 3;
+    B = data.turbine.characteristics.blades;
     
     total_iterations = n_lambda * n_pitch;
     current_iteration = 0;
@@ -723,7 +712,7 @@ end
 % DELIVERABLE 5: TOWER DEFLECTION AND STRESS ANALYSIS
 % ============================================================================
 % Computes tower deflection and stress analysis considering distributed wind
-% loading, thrust forces, and fatigue analysis with Mohr's circle and Goodman diagram.
+% loading, thrust forces, and fatigue analysis with Mohrs circle and Goodman diagram.
 
 function result = Deliverable5(lambda, pitch_deg)
 % DELIVERABLE5 Tower Deflection and Stress Analysis
@@ -813,7 +802,18 @@ function result = Deliverable5(lambda, pitch_deg)
 end
 
 function thrust_force = calculateRotorThrust(data, V_wind, lambda, pitch_deg)
-% Calculate rotor thrust force using BEM analysis (similar to Deliverable4)
+% CALCULATEROTORTHRUST Calculate rotor thrust force using BEM analysis
+% Computes total rotor thrust force by integrating sectional thrust forces
+% across all blade stations using Blade Element Momentum theory.
+%
+% Inputs:
+%   data        - Wind turbine data structure
+%   V_wind      - Wind speed [m/s]
+%   lambda      - Tip speed ratio
+%   pitch_deg   - Blade pitch angle [degrees]
+%
+% Outputs:
+%   thrust_force - Total rotor thrust force [N]
     
     % Turbine parameters
     R = data.turbine.performance.rotorRadius;
@@ -859,7 +859,16 @@ function thrust_force = calculateRotorThrust(data, V_wind, lambda, pitch_deg)
 end
 
 function load_cases = defineLoadCases(V_wind, thrust_force)
-% Define loading scenarios for fatigue analysis
+% DEFINELOADCASES Define loading scenarios for fatigue analysis
+% Creates two load cases for fatigue analysis: maximum and minimum loading
+% scenarios with different wind speeds and directions.
+%
+% Inputs:
+%   V_wind      - Reference wind speed [m/s]
+%   thrust_force - Thrust force from rotor [N]
+%
+% Outputs:
+%   load_cases  - Structure containing case1 and case2 load scenarios
     
     % Load Case 1: Wind from 315° at magnitude 1.0 (maximum)
     load_cases.case1 = struct();
@@ -882,7 +891,15 @@ function load_cases = defineLoadCases(V_wind, thrust_force)
 end
 
 function section_props = computeTowerSectionProperties(tower_specs)
-% Calculate section properties for each tower segment
+% COMPUTETOWERSECTIONPROPERTIES Calculate section properties for each tower segment
+% Computes geometric and structural properties for each tower section including
+% area, moment of inertia, and section modulus.
+%
+% Inputs:
+%   tower_specs - Tower specifications table with height, OD, and wall thickness
+%
+% Outputs:
+%   section_props - Structure containing geometric properties for each section
     
     n_sections = height(tower_specs);
     section_props = struct();
@@ -904,7 +921,18 @@ function section_props = computeTowerSectionProperties(tower_specs)
 end
 
 function deflection_results = solveTowerDeflection(section_props, load_cases, E, data)
-% Solve beam deflection using numerical integration
+% SOLVETOWERDEFLECTION Solve beam deflection using numerical integration
+% Calculates tower deflection for multiple load cases using beam theory
+% with proper boundary conditions and distributed loading.
+%
+% Inputs:
+%   section_props - Tower section properties structure
+%   load_cases    - Loading scenarios structure
+%   E            - Youngs modulus [Pa]
+%   data         - Wind turbine data structure
+%
+% Outputs:
+%   deflection_results - Structure containing deflection and moment results
     
     % Discretize tower into elements
     n_elements = 50;
@@ -931,7 +959,20 @@ function deflection_results = solveTowerDeflection(section_props, load_cases, E,
 end
 
 function [deflection, moment] = calculateDeflectionCase(section_props, load_case, z, E, data)
-% Calculate deflection for a specific load case using proper beam theory
+% CALCULATEDEFLECTIONCASE Calculate deflection for a specific load case
+% Computes beam deflection using proper beam theory with double integration
+% of curvature, handling both wind loading and nacelle distributed loads.
+%
+% Inputs:
+%   section_props - Tower section properties structure
+%   load_case     - Specific loading scenario
+%   z            - Height discretization array [m]
+%   E            - Youngs modulus [Pa]
+%   data         - Wind turbine data structure
+%
+% Outputs:
+%   deflection   - Deflection at each height [m]
+%   moment       - Bending moment at each height [N·m]
     
     n_points = length(z);
     deflection = zeros(size(z));
@@ -984,7 +1025,20 @@ function [deflection, moment] = calculateDeflectionCase(section_props, load_case
 end
 
 function [wind_profile, drag_force, nacelle_load] = computeWindLoading(section_props, load_case, z, data)
-% Compute wind profile and distributed drag force
+% COMPUTEWINDLOADING Compute wind profile and distributed drag force
+% Calculates atmospheric boundary layer wind profile and distributed loading
+% including wind drag on tower and nacelle distributed loads.
+%
+% Inputs:
+%   section_props - Tower section properties structure
+%   load_case     - Loading scenario with wind speed and thrust
+%   z            - Height discretization array [m]
+%   data         - Wind turbine data structure
+%
+% Outputs:
+%   wind_profile  - Wind speed at each height [m/s]
+%   drag_force    - Distributed wind drag force [N/m]
+%   nacelle_load  - Distributed nacelle load [N/m]
     
     % Atmospheric boundary layer wind profile
     % Use hub height as reference for wind speed (more realistic)
@@ -1029,7 +1083,19 @@ function [wind_profile, drag_force, nacelle_load] = computeWindLoading(section_p
 end
 
 function stress_results = computeStressAnalysis(section_props, load_cases, deflection_results, E, data)
-% Calculate stress analysis at tower base
+% COMPUTESTRESSANALYSIS Calculate stress analysis at tower base
+% Performs stress analysis including bending, axial, and combined stresses
+% with fatigue analysis using Goodman diagram methodology.
+%
+% Inputs:
+%   section_props    - Tower section properties structure
+%   load_cases       - Loading scenarios structure
+%   deflection_results - Deflection analysis results
+%   E               - Youngs modulus [Pa]
+%   data            - Wind turbine data structure
+%
+% Outputs:
+%   stress_results  - Structure containing stress analysis results
     
     % Get base section properties
     base_I = section_props.I(1);
@@ -1079,8 +1145,13 @@ function stress_results = computeStressAnalysis(section_props, load_cases, defle
 end
 
 function createTowerDeflectionPlot(deflection_results, section_props)
-% Create tower deflection visualization
-% Usage: createTowerDeflectionPlot(deflection_results, section_props);
+% CREATETOWERDEFLECTIONPLOT Create tower deflection visualization
+% Generates plots showing tower deflection profiles for different load cases
+% with proper scaling and formatting.
+%
+% Inputs:
+%   deflection_results - Deflection analysis results structure
+%   section_props      - Tower section properties structure
     
     % Access global configuration variables
     global SAVE_PLOTS
@@ -1104,8 +1175,12 @@ function createTowerDeflectionPlot(deflection_results, section_props)
 end
 
 function createMohrCirclePlots(stress_results)
-% Create Mohrs circle visualizations
-% Usage: createMohrCirclePlots(stress_results);
+% CREATEMOHRCIRCLEPLOTS Create Mohrs circle visualizations
+% Generates Mohrs circle plots for stress state analysis showing principal
+% stresses and maximum shear stress for different load cases.
+%
+% Inputs:
+%   stress_results - Stress analysis results structure
     
     % Access global configuration variables
     global SAVE_PLOTS
@@ -1136,7 +1211,15 @@ function createMohrCirclePlots(stress_results)
 end
 
 function plotMohrCircle(sigma_x, sigma_y, tau_xy, title_str)
-% Plot Mohrs circle for given stress state
+% PLOTMOHRCIRCLE Plot Mohrs circle for given stress state
+% Creates Mohrs circle visualization for a specific stress state showing
+% principal stresses, maximum shear stress, and stress components.
+%
+% Inputs:
+%   sigma_x     - Normal stress in x-direction [Pa]
+%   sigma_y     - Normal stress in y-direction [Pa]
+%   tau_xy      - Shear stress [Pa]
+%   title_str   - Title string for the plot
     
     % Calculate center and radius
     sigma_center = (sigma_x + sigma_y) / 2;
@@ -1170,8 +1253,15 @@ function plotMohrCircle(sigma_x, sigma_y, tau_xy, title_str)
 end
 
 function createGoodmanDiagram(stress_results, S_ut, S_y, data)
-% Create Goodman diagram for fatigue analysis
-% Usage: createGoodmanDiagram(stress_results, S_ut, S_y, data);
+% CREATEGOODMANDIAGRAM Create Goodman diagram for fatigue analysis
+% Generates Goodman diagram showing fatigue safety factors, endurance limits,
+% and operating points for fatigue analysis of the tower structure.
+%
+% Inputs:
+%   stress_results - Stress analysis results structure
+%   S_ut          - Ultimate tensile strength [Pa]
+%   S_y           - Yield strength [Pa]
+%   data          - Wind turbine data structure
     
     % Access global configuration variables
     global SAVE_PLOTS
@@ -1300,7 +1390,15 @@ end
 
 
 function bladeData = extractBladeProfile(filePath)
-% Extract blade profile data from CSV file
+% EXTRACTBLADEPROFILE Extract blade profile data from CSV file
+% Reads blade geometry data including chord length, twist angle, and airfoil
+% assignments from CSV file and organizes into structured format.
+%
+% Inputs:
+%   filePath    - Path to blade profile CSV file
+%
+% Outputs:
+%   bladeData   - Structure containing blade profile data and metadata
     
     % Read the CSV file
     opts = detectImportOptions(filePath);
@@ -1321,7 +1419,15 @@ function bladeData = extractBladeProfile(filePath)
 end
 
 function towerData = extractTowerSpecs(filePath)
-% Extract tower specification data from CSV file
+% EXTRACTTOWERSPECS Extract tower specification data from CSV file
+% Reads tower geometry data including height, outer diameter, and wall thickness
+% from CSV file and calculates additional structural parameters.
+%
+% Inputs:
+%   filePath    - Path to tower specifications CSV file
+%
+% Outputs:
+%   towerData   - Structure containing tower specifications and calculated parameters
     
     % Read the CSV file
     opts = detectImportOptions(filePath);
@@ -1342,7 +1448,15 @@ function towerData = extractTowerSpecs(filePath)
 end
 
 function airfoilData = extractAirfoilCoordinates(basePath)
-% Extract airfoil coordinate data from .dat files
+% EXTRACTAIRFOILCOORDINATES Extract airfoil coordinate data from .dat files
+% Reads airfoil coordinate data from .dat files and organizes into structured
+% format for use in aerodynamic calculations and visualizations.
+%
+% Inputs:
+%   basePath    - Base directory path containing airfoil .dat files
+%
+% Outputs:
+%   airfoilData - Structure containing coordinate data for each airfoil
     
     airfoilData = struct();
     
@@ -1389,7 +1503,15 @@ function airfoilData = extractAirfoilCoordinates(basePath)
 end
 
 function performanceData = extractAirfoilPerformance(basePath)
-% Extract airfoil performance data from CSV files
+% EXTRACTAIRFOILPERFORMANCE Extract airfoil performance data from CSV files
+% Reads airfoil performance data including lift, drag, and moment coefficients
+% versus angle of attack from CSV files for BEM analysis.
+%
+% Inputs:
+%   basePath        - Base directory path containing airfoil performance CSV files
+%
+% Outputs:
+%   performanceData - Structure containing performance data for each airfoil
     
     performanceData = struct();
     
@@ -1431,7 +1553,12 @@ function performanceData = extractAirfoilPerformance(basePath)
 end
 
 function materialData = extractMaterialProperties()
-% Extract material properties for air and steel
+% EXTRACTMATERIALPROPERTIES Extract material properties for air and steel
+% Defines material properties for air (aerodynamic calculations) and steel
+% (structural calculations) with comprehensive property sets and units.
+%
+% Outputs:
+%   materialData - Structure containing air and steel material properties
     
     materialData = struct();
     
@@ -1456,12 +1583,15 @@ function materialData = extractMaterialProperties()
     materialData.steel.safetyFactor = 1.5; % Typical safety factor
     materialData.steel.allowableStress = materialData.steel.yieldStrength / materialData.steel.safetyFactor;
     materialData.steel.enduranceLimitFactor = 0.5; % Factor for endurance limit calculation
-    
-    fprintf('  Material properties: Air and Steel (ASTM A572 Grade 50)\n');
 end
 
 function turbineData = extractTurbineSpecifications()
-% Extract wind turbine specifications for Clipper Liberty C96
+% EXTRACTTURBINESPECIFICATIONS Extract wind turbine specifications
+% Defines comprehensive wind turbine specifications for Clipper Liberty C96
+% including performance characteristics, dimensions, and calculated parameters.
+%
+% Outputs:
+%   turbineData - Structure containing complete turbine specifications
     
     turbineData = struct();
     
@@ -1547,7 +1677,10 @@ end
 % ============================================================================
 
 function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, c, twist_rad, perf_data, lambda_r, V_wind, omega_rad, pitch_rad)
-% Closed-form induction factors and sectional loads (no iteration)
+% SOLVEBEMSECTION Closed-form BEM analysis for airfoil sections
+% Calculates induction factors and sectional loads using Blade Element Momentum theory
+% without iteration for improved computational efficiency.
+%
 % Inputs:
 %   r           - radial position [m]
 %   c           - local chord [m]
@@ -1586,7 +1719,26 @@ function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, c, twist_rad, 
 end
 
 function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, twist_rad, lambda_r, V_wind, omega_rad, pitch_rad, rho, mu)
-% Circle (cylinder) section: CL=0, CD from Re via empirical fit. Uses same BEM kinematics.
+% SOLVECIRCLESECTION BEM analysis for circular sections
+% Calculates induction factors and loads for circular (non-lifting) sections
+% with zero lift coefficient and Reynolds-dependent drag coefficient.
+%
+% Inputs:
+%   r           - radial position [m]
+%   c           - local chord (diameter) [m]
+%   twist_rad   - local geometric twist [rad]
+%   lambda_r    - local tip-speed ratio (λ * r / R)
+%   V_wind      - freestream wind speed [m/s]
+%   omega_rad   - rotor speed [rad/s]
+%   pitch_rad   - blade pitch angle [rad]
+%   rho         - air density [kg/m³]
+%   mu          - air dynamic viscosity [Pa·s]
+%
+% Outputs:
+%   a, a_prime  - axial and tangential induction factors
+%   CL, CD      - lift and drag coefficients
+%   Cn, Ct      - normal and tangential force coefficients
+%   V_rel       - relative velocity [m/s]
     a = 1/3;
     a_prime = -0.5 + 0.5 * sqrt(1 + (4/(lambda_r^2)) * a * (1 - a));
     
@@ -1605,7 +1757,15 @@ function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, twist_ra
 end
 
 function C_D = cylinderCDlocal(Re)
-% Drag coefficient for a smooth circular cylinder in cross-flow (empirical fit)
+% CYLINDERCDLOCAL Drag coefficient for circular cylinders
+% Calculates drag coefficient for smooth circular cylinders in cross-flow
+% using empirical correlations based on Reynolds number.
+%
+% Inputs:
+%   Re          - Reynolds number based on cylinder diameter
+%
+% Outputs:
+%   C_D         - Drag coefficient
     if Re < 2e5
         C_D = 11 * Re.^(-0.75) + 0.9 * (1.0 - exp(-1000./Re)) + 1.2 * (1.0 - exp(-(Re./4500).^0.7));
     elseif Re <= 5e5
@@ -1616,13 +1776,29 @@ function C_D = cylinderCDlocal(Re)
 end
 
 function [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, twist_deg, r, c, lambda_r, V_wind, omega_rad, pitch_rad, data, rho, mu, varargin)
-% Unified section coefficients function that handles both signature types
-% Standard signature: getSectionCoefficients(airfoil, twist_deg, r, c, lambda_r, V_wind, omega_rad, pitch_rad, data, rho, mu)
-% Extended signature: getSectionCoefficients(airfoil, twist_deg, r, c, lambda_r, V_wind, omega_rad, pitch_rad, data, rho, mu, B, R)
-% 
-% Optional parameters (varargin):
-%   B - Number of blades (optional, for future use)
-%   R - Rotor radius (optional, for future use)
+% GETSECTIONCOEFFICIENTS Unified section coefficient calculation
+% Calculates BEM coefficients for airfoil or circular sections based on airfoil type.
+% Automatically handles both airfoil and circular section calculations.
+%
+% Inputs:
+%   airfoil     - Airfoil name or 'Circle' for circular sections
+%   twist_deg   - Local geometric twist [degrees]
+%   r           - Radial position [m]
+%   c           - Local chord [m]
+%   lambda_r    - Local tip-speed ratio
+%   V_wind      - Freestream wind speed [m/s]
+%   omega_rad   - Rotor speed [rad/s]
+%   pitch_rad   - Blade pitch angle [rad]
+%   data        - Wind turbine data structure
+%   rho         - Air density [kg/m³]
+%   mu          - Air dynamic viscosity [Pa·s]
+%   varargin    - Optional parameters (B, R for future use)
+%
+% Outputs:
+%   a, a_prime  - Axial and tangential induction factors
+%   CL, CD      - Lift and drag coefficients
+%   Cn, Ct      - Normal and tangential force coefficients
+%   V_rel       - Relative velocity [m/s]
 
     airfoil_name = regexprep(airfoil, '\s+', '');
     airfoil_name = regexprep(airfoil_name, '[-–—]', '_');
@@ -1640,8 +1816,19 @@ function [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, t
 end
 
 function createVisualization(r_stations, dCP, dCT, CP, CT, lambda, V_wind, omega)
-% Create visualization of the analysis results
-% Usage: createVisualization(r_stations, dCP, dCT, CP, CT, lambda, V_wind, omega);
+% CREATEVISUALIZATION Create visualization of BEM analysis results
+% Generates comprehensive plots showing power and thrust distributions,
+% sectional contributions, and performance metrics.
+%
+% Inputs:
+%   r_stations  - Radial station positions [m]
+%   dCP         - Differential power coefficient distribution
+%   dCT         - Differential thrust coefficient distribution
+%   CP          - Total power coefficient
+%   CT          - Total thrust coefficient
+%   lambda      - Tip speed ratio
+%   V_wind      - Wind speed [m/s]
+%   omega       - Rotor speed [rad/s]
 
     % Access global configuration variables
     global SAVE_PLOTS
@@ -1733,8 +1920,18 @@ function createVisualization(r_stations, dCP, dCT, CP, CT, lambda, V_wind, omega
 end
 
 function createPitchOptimizationPlot(pitch_range, CP_values, CT_values, optimal_pitch, CP_max, V_wind, lambda)
-% Create visualization of CP and CT vs Pitch Angle
-% Usage: createPitchOptimizationPlot(pitch_range, CP_values, CT_values, optimal_pitch, CP_max, V_wind, lambda);
+% CREATEPITCHOPTIMIZATIONPLOT Create visualization of CP and CT vs Pitch Angle
+% Generates comprehensive plots showing power and thrust coefficients versus
+% pitch angle with optimal point highlighting and dual y-axis formatting.
+%
+% Inputs:
+%   pitch_range  - Array of pitch angles [degrees]
+%   CP_values    - Power coefficient values
+%   CT_values    - Thrust coefficient values
+%   optimal_pitch - Optimal pitch angle [degrees]
+%   CP_max       - Maximum power coefficient
+%   V_wind       - Wind speed [m/s]
+%   lambda       - Tip speed ratio
 
     % Access global configuration variables
     global SAVE_PLOTS
@@ -1775,8 +1972,19 @@ function createPitchOptimizationPlot(pitch_range, CP_values, CT_values, optimal_
 end
 
 function create2DOptimizationPlot(lambda_range, pitch_range, CP_matrix, CT_matrix, optimal_lambda, optimal_pitch, CP_max, V_wind)
-% Create 2D visualization of CP and CT vs Tip Speed Ratio and Pitch Angle
-% Usage: create2DOptimizationPlot(lambda_range, pitch_range, CP_matrix, CT_matrix, optimal_lambda, optimal_pitch, CP_max, V_wind);
+% CREATE2DOPTIMIZATIONPLOT Create 2D visualization of CP and CT optimization
+% Generates comprehensive 2D plots including contour plots, surface plots,
+% and results summary for tip speed ratio and pitch angle optimization.
+%
+% Inputs:
+%   lambda_range   - Array of tip speed ratios
+%   pitch_range    - Array of pitch angles [degrees]
+%   CP_matrix      - Power coefficient matrix [lambda x pitch]
+%   CT_matrix      - Thrust coefficient matrix [lambda x pitch]
+%   optimal_lambda - Optimal tip speed ratio
+%   optimal_pitch  - Optimal pitch angle [degrees]
+%   CP_max         - Maximum power coefficient
+%   V_wind         - Wind speed [m/s]
 
     % Access global configuration variables
     global SAVE_PLOTS
