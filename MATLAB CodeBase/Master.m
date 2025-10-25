@@ -70,26 +70,34 @@ function runAllDeliverables()
 
     % Make configuration variables global so they can be accessed from functions
     global RUN_DELIVERABLE_1 RUN_DELIVERABLE_2 RUN_DELIVERABLE_3 RUN_DELIVERABLE_4 RUN_DELIVERABLE_5
-    global PLOT_D1_RESULTS PLOT_D2_OPTIMIZATION PLOT_D3_OPTIMIZATION PLOT_D5_DEFLECTION PLOT_D5_MOHR PLOT_D5_GOODMAN
+    global PLOT_D1_RESULTS PLOT_D2_OPTIMIZATION PLOT_D3_OPTIMIZATION PLOT_D4_POWER PLOT_D5_DEFLECTION PLOT_D5_MOHR PLOT_D5_GOODMAN PLOT_D5_TOWER
     global SAVE_PLOTS VERBOSE_OUTPUT PARAMETERS_PATH
+    global COLOR_PRIMARY COLOR_SECONDARY COLOR_ACCENT
 
     % Define configuration variables (these are the defaults - edit these values to change behavior)
-    RUN_DELIVERABLE_1 = false;    % Basic BEM Analysis
-    RUN_DELIVERABLE_2 = false;    % Pitch Optimization
-    RUN_DELIVERABLE_3 = false;    % 2D CP Optimization
-    RUN_DELIVERABLE_4 = false;    % Rated Power Pitch Control
+    RUN_DELIVERABLE_1 = true;    % Basic BEM Analysis
+    RUN_DELIVERABLE_2 = true;    % Pitch Optimization
+    RUN_DELIVERABLE_3 = true;    % 2D CP Optimization
+    RUN_DELIVERABLE_4 = true;    % Rated Power Pitch Control
     RUN_DELIVERABLE_5 = true;    % Tower Deflection Analysis
     
-    PLOT_D1_RESULTS = false;      % D1: BEM Analysis Results
-    PLOT_D2_OPTIMIZATION = false; % D2: Pitch Optimization Plot
-    PLOT_D3_OPTIMIZATION = false; % D3: 2D Optimization Plot
+    PLOT_D1_RESULTS = true;      % D1: BEM Analysis Results
+    PLOT_D2_OPTIMIZATION = true; % D2: Pitch Optimization Plot
+    PLOT_D3_OPTIMIZATION = true; % D3: 2D Optimization Plot
+    PLOT_D4_POWER = true;       % D4: Power vs Pitch Plot
     PLOT_D5_DEFLECTION = true;   % D5: Tower Deflection Plot
     PLOT_D5_MOHR = true;         % D5: Mohr Circle Plot
     PLOT_D5_GOODMAN = true;       % D5: Goodman Diagram
+    PLOT_D5_TOWER = true;        % D5: Tower Analysis Plots
     
     SAVE_PLOTS = false;          % Save plots to files
     VERBOSE_OUTPUT = false;       % Show detailed progress information
     PARAMETERS_PATH = 'Auxilary Information/Given Parameters/';  % Path to data files
+    
+    % Color scheme for consistent plotting across all deliverables
+    COLOR_PRIMARY = 'b';          % Primary color (blue) - Case 1, main lines, Goodman line
+    COLOR_SECONDARY = 'r';        % Secondary color (red) - Case 2, secondary lines, load line
+    COLOR_ACCENT = 'g';           % Accent color (green) - Special markers, wind drag, yield line
 
     fprintf('=== MASTER WIND TURBINE ANALYSIS ===\n');
     if VERBOSE_OUTPUT
@@ -580,6 +588,9 @@ function result = Deliverable4()
 
     fprintf('=== Deliverable 4: Rated Power Pitch Determination ===\n\n');
 
+    % Access global configuration variables
+    global PLOT_D4_POWER SAVE_PLOTS PARAMETERS_PATH COLOR_PRIMARY
+
     data = ParameterExtraction();
 
     % Inputs and constants
@@ -673,7 +684,7 @@ function result = Deliverable4()
         CP_pitch(j) = best_CP;
         lambda_at_CP(j) = best_lambda;
 
-        fprintf('Pitch %5.1f deg: max CP=%.4f at λ=%.2f -> P=%.1f kW\n', pitch_deg, best_CP, best_lambda, (best_CP*0.5*rho*A*V_wind^3)/1e3);
+        %fprintf('Pitch %5.1f deg: max CP=%.4f at λ=%.2f -> P=%.1f kW\n', pitch_deg, best_CP, best_lambda, (best_CP*0.5*rho*A*V_wind^3)/1e3);
     end
 
     P_pitch = CP_pitch * (0.5 * rho * A * V_wind^3);
@@ -701,11 +712,19 @@ function result = Deliverable4()
                     'ratedPower', ratedPower, 'V_wind', V_wind);
 
     % Simple visualization
-    figure(4); set(gcf, 'Position', [100, 100, 600, 500]);
-    plot(pitch_range, P_pitch/1e3, 'b-', 'LineWidth', 2); hold on;
-    yline(ratedPower/1e3, 'r--', 'Rated');
-    plot(pitch_req, P_req/1e3, 'ko', 'MarkerSize', 8, 'LineWidth', 2);
-    xlabel('Pitch (deg)'); ylabel('Power (kW)'); title(sprintf('Power vs Pitch (V = %.1f m/s)', V_wind)); grid on;
+    if PLOT_D4_POWER
+        figure(4); set(gcf, 'Position', [100, 100, 600, 500]);
+        plot(pitch_range, P_pitch/1e3, [COLOR_PRIMARY '-'], 'LineWidth', 2); hold on;
+        yline(ratedPower/1e3, 'r--', 'Rated');
+        plot(pitch_req, P_req/1e3, 'ko', 'MarkerSize', 8, 'LineWidth', 2);
+        xlabel('Pitch (deg)'); ylabel('Power (kW)'); title(sprintf('Power vs Pitch (V = %.1f m/s)', V_wind)); grid on;
+        
+        % Save plot if enabled
+        if SAVE_PLOTS
+            saveas(gcf, 'Deliverable4_Power_vs_Pitch.png');
+            fprintf('Power vs Pitch plot saved as Deliverable4_Power_vs_Pitch.png\n');
+        end
+    end
 end
 
 % ============================================================================
@@ -755,11 +774,11 @@ function result = Deliverable5(lambda, pitch_deg)
     
     % Calculate thrust force from BEM analysis
     fprintf('\nCalculating rotor thrust force...\n');
-    thrust_force = calculateRotorThrust(data, V_wind, lambda, pitch_deg);
+    thrust_force = calculateRotorThrust(data, V_wind, lambda, pitch_deg); %Checked
     fprintf('Total thrust force: %.1f kN\n', thrust_force/1000);
     
     % Define loading scenarios
-    load_cases = defineLoadCases(V_wind, thrust_force);
+    load_cases = defineLoadCases(V_wind, thrust_force, data, lambda, pitch_deg);
     
     % Calculate tower section properties
     fprintf('\nComputing tower section properties...\n');
@@ -786,6 +805,10 @@ function result = Deliverable5(lambda, pitch_deg)
     createGoodmanDiagram(stress_results, S_ut, S_y, data);
     end
     
+    % Create comprehensive tower analysis plots
+    createTowerAnalysisPlots(deflection_results, load_cases, section_props, data);
+    
+    
     % Compile results
     result = struct();
     result.deflection = deflection_results;
@@ -808,7 +831,7 @@ function thrust_force = calculateRotorThrust(data, V_wind, lambda, pitch_deg)
 %
 % Inputs:
 %   data        - Wind turbine data structure
-%   V_wind      - Wind speed [m/s]
+%   v_wind      - Wind speed [m/s]
 %   lambda      - Tip speed ratio
 %   pitch_deg   - Blade pitch angle [degrees]
 %
@@ -858,14 +881,17 @@ function thrust_force = calculateRotorThrust(data, V_wind, lambda, pitch_deg)
     thrust_force = B * trapz(r_stations, dT);
 end
 
-function load_cases = defineLoadCases(V_wind, thrust_force)
+function load_cases = defineLoadCases(V_wind, thrust_force, data, lambda, pitch_deg)
 % DEFINELOADCASES Define loading scenarios for fatigue analysis
 % Creates two load cases for fatigue analysis: maximum and minimum loading
 % scenarios with different wind speeds and directions.
 %
 % Inputs:
-%   V_wind      - Reference wind speed [m/s]
+%   v_wind      - Reference wind speed [m/s]
 %   thrust_force - Thrust force from rotor [N]
+%   data        - Wind turbine data structure
+%   lambda      - Tip speed ratio
+%   pitch_deg   - Blade pitch angle [degrees]
 %
 % Outputs:
 %   load_cases  - Structure containing case1 and case2 load scenarios
@@ -881,8 +907,10 @@ function load_cases = defineLoadCases(V_wind, thrust_force)
     load_cases.case2 = struct();
     load_cases.case2.wind_speed = V_wind * 0.5;
     load_cases.case2.wind_direction = 157; % degrees
-    load_cases.case2.thrust_force = thrust_force * 0.5; % Assume thrust scales with wind speed
+    % Calculate thrust force for reduced wind speed using BEM analysis
+    load_cases.case2.thrust_force = calculateRotorThrust(data, V_wind * 0.5, lambda, pitch_deg);
     load_cases.case2.description = 'Minimum loading - wind from 157°';
+    
     
     fprintf('Load Case 1: V=%.1f m/s, θ=%.0f°, T=%.1f kN\n', ...
         load_cases.case1.wind_speed, load_cases.case1.wind_direction, load_cases.case1.thrust_force/1000);
@@ -928,16 +956,19 @@ function deflection_results = solveTowerDeflection(section_props, load_cases, E,
 % Inputs:
 %   section_props - Tower section properties structure
 %   load_cases    - Loading scenarios structure
-%   E            - Youngs modulus [Pa]
+%   e            - Youngs modulus [Pa]
 %   data         - Wind turbine data structure
 %
 % Outputs:
 %   deflection_results - Structure containing deflection and moment results
     
     % Discretize tower into elements
-    n_elements = 50;
+    n_elements = 150;
     hub_height = data.turbine.performance.hubHeight;
-    z = linspace(0, hub_height, n_elements+1);  % Extend to hub height
+    tower_height = section_props.height(end);
+    nacelle_height = (hub_height - tower_height) * 2;
+    total_height = tower_height + nacelle_height;
+    z = linspace(0, total_height, n_elements+1);  % Extend to total height
     dz = z(2) - z(1);
     
     % Initialize deflection arrays
@@ -949,6 +980,7 @@ function deflection_results = solveTowerDeflection(section_props, load_cases, E,
     [deflection_case1, moment_case1] = calculateDeflectionCase(section_props, load_cases.case1, z, E, data);
     deflection_results.deflection = deflection_case1;
     deflection_results.moment = moment_case1;
+    
     
     % Store case-specific results
     deflection_results.case1 = struct('deflection', deflection_case1, 'moment', moment_case1);
@@ -967,7 +999,7 @@ function [deflection, moment] = calculateDeflectionCase(section_props, load_case
 %   section_props - Tower section properties structure
 %   load_case     - Specific loading scenario
 %   z            - Height discretization array [m]
-%   E            - Youngs modulus [Pa]
+%   e            - Youngs modulus [Pa]
 %   data         - Wind turbine data structure
 %
 % Outputs:
@@ -981,13 +1013,18 @@ function [deflection, moment] = calculateDeflectionCase(section_props, load_case
     % Calculate wind profile and distributed loading
     [wind_profile, drag_force, nacelle_load] = computeWindLoading(section_props, load_case, z, data);
     
+    
     % Calculate moment distribution using proper beam theory
     for i = 1:n_points
         % Wind moment (integrate from current point to tip)
         wind_moment = 0;
         for j = i:n_points-1
             if j < n_points
-                wind_moment = wind_moment + drag_force(j) * (z(j+1) - z(j)) * (z(j) - z(i));
+                dz = z(j+1) - z(j);
+                lever_arm = z(j) - z(i);
+                if ~isnan(dz) && ~isnan(lever_arm) && ~isnan(drag_force(j))
+                    wind_moment = wind_moment + drag_force(j) * dz * lever_arm;
+                end
             end
         end
         
@@ -995,11 +1032,16 @@ function [deflection, moment] = calculateDeflectionCase(section_props, load_case
         nacelle_moment = 0;
         for j = i:n_points-1
             if j < n_points
-                nacelle_moment = nacelle_moment + nacelle_load(j) * (z(j+1) - z(j)) * (z(j) - z(i));
+                dz = z(j+1) - z(j);
+                lever_arm = z(j) - z(i);
+                if ~isnan(dz) && ~isnan(lever_arm) && ~isnan(nacelle_load(j))
+                    nacelle_moment = nacelle_moment + nacelle_load(j) * dz * lever_arm;
+                end
             end
         end
         
         moment(i) = wind_moment + nacelle_moment;
+        
     end
     
     % Calculate deflection using proper beam theory (double integration)
@@ -1047,7 +1089,13 @@ function [wind_profile, drag_force, nacelle_load] = computeWindLoading(section_p
     epsilon = 1/7;
     
     % Wind speed increases with height (realistic atmospheric boundary layer)
+    % Only apply to tower region (0 to tower height)
+    tower_height = section_props.height(end);  % 77.7m
     wind_profile = U_ref * (z / z_ref).^epsilon;
+    
+    % For heights above tower (nacelle region), wind effects are negligible
+    % Set to zero to avoid any wind loading calculations
+    wind_profile(z > tower_height) = 0;
     
     % Get tower diameter at each height
     D = interp1(section_props.height, section_props.OD, z, 'linear', 'extrap');
@@ -1055,28 +1103,31 @@ function [wind_profile, drag_force, nacelle_load] = computeWindLoading(section_p
     % Calculate drag force per unit length
     rho_air = data.materials.air.density;  % kg/m³
     
-    % Calculate drag coefficient using cylinder CD function
-    % Use representative wind speed and tower diameter for Reynolds number
-    U_avg = mean(wind_profile);
-    D_avg = mean(D);
+    % Calculate drag coefficient for each tower section
+    % Only calculate for tower region (nacelle region has negligible wind effects)
     mu_air = data.materials.air.viscosity;
-    Re = rho_air * U_avg * D_avg / mu_air;
-    C_d = cylinderCDlocal(Re);
+    Re = rho_air * wind_profile .* D / mu_air;  % Reynolds number for each section
+    C_d = arrayfun(@cylinderCDlocal, Re);  % Drag coefficient for each section
     
-    % Distributed drag force per unit length
-    drag_force = 0.5 * rho_air * wind_profile.^2 .* D * C_d;
+    % Set drag coefficient to zero for nacelle region (negligible wind effects)
+    C_d(z > tower_height) = 0;
+    
+    % Distributed drag force per unit length (element-wise multiplication)
+    drag_force = 0.5 * rho_air * wind_profile.^2 .* D .* C_d;
     
     % Only apply wind drag to tower region (0 to tower top)
+    % Nacelle region has negligible wind effects
     tower_height = section_props.height(end);  % 77.7m
     drag_force(z > tower_height) = 0;
     
-    % Calculate nacelle distributed load (77.7m to hub height)
+    % Calculate nacelle distributed load
     hub_height = data.turbine.performance.hubHeight;
-    nacelle_height = hub_height - tower_height;  % Height of nacelle region
+    nacelle_height = (hub_height - tower_height) * 2;  % Height of nacelle region
+    total_height = tower_height + nacelle_height;  % Total height including nacelle
     
     % Uniformly distributed load in nacelle region
     nacelle_load = zeros(size(z));
-    nacelle_region = (z > tower_height) & (z <= hub_height);
+    nacelle_region = (z > tower_height) & (z <= total_height);
     if any(nacelle_region) && nacelle_height > 0
         nacelle_load(nacelle_region) = load_case.thrust_force / nacelle_height;
     end
@@ -1091,7 +1142,7 @@ function stress_results = computeStressAnalysis(section_props, load_cases, defle
 %   section_props    - Tower section properties structure
 %   load_cases       - Loading scenarios structure
 %   deflection_results - Deflection analysis results
-%   E               - Youngs modulus [Pa]
+%   e               - Youngs modulus [Pa]
 %   data            - Wind turbine data structure
 %
 % Outputs:
@@ -1105,40 +1156,115 @@ function stress_results = computeStressAnalysis(section_props, load_cases, defle
     % Calculate stresses for both load cases
     stress_results = struct();
     
-    % Load Case 1 (maximum)
+    % Calculate bending stresses for both load cases
+    % Thrust force is horizontal, so only contributes to bending moment (no axial stress)
     moment_1 = deflection_results.case1.moment(1);
-    thrust_1 = load_cases.case1.thrust_force;
-    
-    sigma_bending_1 = moment_1 * base_c / base_I;  % Bending stress
-    sigma_axial_1 = thrust_1 / base_area;          % Axial stress
-    sigma_max_1 = sigma_bending_1 + sigma_axial_1; % Combined stress
-    
-    % Load Case 2 (minimum)
     moment_2 = deflection_results.case2.moment(1);
-    thrust_2 = load_cases.case2.thrust_force;
     
+    sigma_bending_1 = moment_1 * base_c / base_I;
     sigma_bending_2 = moment_2 * base_c / base_I;
-    sigma_axial_2 = thrust_2 / base_area;
-    sigma_max_2 = sigma_bending_2 + sigma_axial_2;
     
-    % Store results
-    stress_results.case1 = struct('sigma_bending', sigma_bending_1, 'sigma_axial', sigma_axial_1, ...
+    % Apply directional factors based on wind direction
+    beta_1 = 0;  % Case 1 is reference (maximum) condition
+    beta_2 = load_cases.case2.wind_direction - load_cases.case1.wind_direction;
+    
+    sigma_max_1 = sigma_bending_1 * cosd(beta_1);  % = sigma_bending_1 (cos(0) = 1)
+    sigma_max_2 = sigma_bending_2 * cosd(beta_2);
+    
+    % Mohrs Circle Analysis for maximum stresses
+    fprintf('\n--- Mohr''s Circle Analysis ---\n');
+    
+    % For uniaxial stress state (σ_y = 0, τ_xy = 0), Mohrs circle simplifies to:
+    % σ₁ = σ_x, σ₂ = 0, τ_max = σ_x/2
+    sigma_1_1 = sigma_max_1;  % Principal stress 1 = bending stress
+    sigma_2_1 = 0;            % Principal stress 2 = 0 (uniaxial)
+    tau_max_1 = sigma_max_1 / 2;  % Maximum shear stress
+    
+    sigma_1_2 = sigma_max_2;  % Principal stress 1 = bending stress  
+    sigma_2_2 = 0;            % Principal stress 2 = 0 (uniaxial)
+    tau_max_2 = sigma_max_2 / 2;  % Maximum shear stress
+    
+    fprintf('Case 1 - Principal Stresses: σ₁ = %.1f MPa, σ₂ = %.1f MPa\n', ...
+        sigma_1_1/1e6, sigma_2_1/1e6);
+    fprintf('Case 1 - Max Shear Stress: τ_max = %.1f MPa\n', tau_max_1/1e6);
+    fprintf('Case 2 - Principal Stresses: σ₁ = %.1f MPa, σ₂ = %.1f MPa\n', ...
+        sigma_1_2/1e6, sigma_2_2/1e6);
+    fprintf('Case 2 - Max Shear Stress: τ_max = %.1f MPa\n', tau_max_2/1e6);
+    
+    % Store Mohrs circle results
+    stress_results.mohr_case1 = struct('sigma_1', sigma_1_1, 'sigma_2', sigma_2_1, ...
+        'tau_max', tau_max_1, 'sigma_center', sigma_1_1/2, 'radius', sigma_1_1/2);
+    stress_results.mohr_case2 = struct('sigma_1', sigma_1_2, 'sigma_2', sigma_2_2, ...
+        'tau_max', tau_max_2, 'sigma_center', sigma_1_2/2, 'radius', sigma_1_2/2);
+    
+    % Store stress results
+    stress_results.case1 = struct('sigma_bending', sigma_bending_1, 'sigma_axial', 0, ...
         'sigma_max', sigma_max_1, 'moment', moment_1);
-    stress_results.case2 = struct('sigma_bending', sigma_bending_2, 'sigma_axial', sigma_axial_2, ...
+    stress_results.case2 = struct('sigma_bending', sigma_bending_2, 'sigma_axial', 0, ...
         'sigma_max', sigma_max_2, 'moment', moment_2);
     
     % Calculate mean and alternating stresses for fatigue
     stress_results.sigma_mean = (sigma_max_1 + sigma_max_2) / 2;
-    stress_results.sigma_alt = (sigma_max_1 - sigma_max_2) / 2;
+    stress_results.sigma_alt = abs(sigma_max_1 - sigma_max_2) / 2;
     stress_results.max_stress = [sigma_max_1, sigma_max_2];
     
-    % Fatigue analysis
-    S_ut = 450e6;  % Pa (from function parameter)
-    S_e = data.materials.steel.enduranceLimitFactor * S_ut;  % Endurance limit
-    n_fatigue = 1 / (stress_results.sigma_alt/S_e + stress_results.sigma_mean/S_ut);
+    % Fatigue analysis with proper endurance limit calculation
+    S_ut = data.materials.steel.tensileStrength;  % Use data instead of hardcoded value
+    
+    % Endurance limit calculation with modification factors
+    S_n_prime = 0.5 * S_ut;  % Base endurance limit
+    C_L = 1.0;  % Load factor (bending)
+    C_G = 0.9;  % Gradient factor
+    C_S = 0.7;  % Surface factor
+    S_n = S_n_prime * C_L * C_G * C_S;  % Modified endurance limit
+    
+    n_fatigue = 1 / (stress_results.sigma_alt/S_n + stress_results.sigma_mean/S_ut);
     stress_results.fatigue_safety_factor = n_fatigue;
     
-    fprintf('Base stress - Case 1: %.1f MPa, Case 2: %.1f MPa\n', ...
+    % Static failure analysis using Mohrs Circle results (Case 1)
+    fprintf('\n--- Static Failure Analysis (Maximum Load Case) ---\n');
+    
+    S_y = data.materials.steel.yieldStrength;
+    
+    % 1. Maximum Normal Stress Theory (MNST)
+    SF_MNST = S_y / sigma_1_1;
+    if SF_MNST >= 1.0
+        status_MNST = '(SAFE)';
+    else
+        status_MNST = '(FAIL)';
+    end
+    fprintf('MNST: σ₁ = %.1f MPa, SF = %.2f %s\n', sigma_1_1/1e6, SF_MNST, status_MNST);
+    
+    % 2. Maximum Shear Stress Theory (MSST) - Tresca
+    S_sy = S_y / 2;  % Shear yield strength
+    SF_MSST = S_sy / tau_max_1;
+    if SF_MSST >= 1.0
+        status_MSST = '(SAFE)';
+    else
+        status_MSST = '(FAIL)';
+    end
+    fprintf('MSST: τ_max = %.1f MPa, S_sy = %.1f MPa, SF = %.2f %s\n', ...
+        tau_max_1/1e6, S_sy/1e6, SF_MSST, status_MSST);
+    
+    % 3. Distortion Energy Theory (DET) - von Mises
+    SF_DET = S_y / sigma_1_1;  % For uniaxial stress: σ_eq = σ₁
+    if SF_DET >= 1.0
+        status_DET = '(SAFE)';
+    else
+        status_DET = '(FAIL)';
+    end
+    fprintf('DET: σ_eq = %.1f MPa, SF = %.2f %s\n', sigma_1_1/1e6, SF_DET, status_DET);
+    
+    % Store static failure results
+    stress_results.static_failure = struct();
+    stress_results.static_failure.MNST_SF = SF_MNST;
+    stress_results.static_failure.MSST_SF = SF_MSST;
+    stress_results.static_failure.DET_SF = SF_DET;
+    stress_results.static_failure.tau_max = tau_max_1;
+    stress_results.static_failure.sigma_eq = sigma_1_1;
+    stress_results.static_failure.min_SF = min([SF_MNST, SF_MSST, SF_DET]);
+    
+    fprintf('\nBase stress - Case 1: %.1f MPa, Case 2: %.1f MPa\n', ...
         sigma_max_1/1e6, sigma_max_2/1e6);
     fprintf('Mean stress: %.1f MPa, Alternating stress: %.1f MPa\n', ...
         stress_results.sigma_mean/1e6, stress_results.sigma_alt/1e6);
@@ -1154,13 +1280,17 @@ function createTowerDeflectionPlot(deflection_results, section_props)
 %   section_props      - Tower section properties structure
     
     % Access global configuration variables
-    global SAVE_PLOTS
+    global PLOT_D5_DEFLECTION SAVE_PLOTS COLOR_PRIMARY COLOR_SECONDARY
+    
+    if ~PLOT_D5_DEFLECTION
+        return;
+    end
     
     figure(5); set(gcf, 'Position', [100, 100, 800, 400]);
     
-    plot(deflection_results.z, deflection_results.case1.deflection, 'b-', 'LineWidth', 2);
+    plot(deflection_results.z, deflection_results.case1.deflection, [COLOR_PRIMARY '-'], 'LineWidth', 2);
     hold on;
-    plot(deflection_results.z, deflection_results.case2.deflection, 'r--', 'LineWidth', 2);
+    plot(deflection_results.z, deflection_results.case2.deflection, [COLOR_SECONDARY '--'], 'LineWidth', 2);
     xlabel('Height (m)');
     ylabel('Deflection (m)');
     title('Tower Deflection Profile');
@@ -1183,7 +1313,11 @@ function createMohrCirclePlots(stress_results)
 %   stress_results - Stress analysis results structure
     
     % Access global configuration variables
-    global SAVE_PLOTS
+    global PLOT_D5_MOHR SAVE_PLOTS COLOR_PRIMARY
+    
+    if ~PLOT_D5_MOHR
+        return;
+    end
     
     figure(6); set(gcf, 'Position', [200, 200, 1200, 500]);
     
@@ -1221,6 +1355,9 @@ function plotMohrCircle(sigma_x, sigma_y, tau_xy, title_str)
 %   tau_xy      - Shear stress [Pa]
 %   title_str   - Title string for the plot
     
+    % Access global configuration variables
+    global COLOR_PRIMARY
+    
     % Calculate center and radius
     sigma_center = (sigma_x + sigma_y) / 2;
     R = sqrt(((sigma_x - sigma_y) / 2)^2 + tau_xy^2);
@@ -1235,10 +1372,17 @@ function plotMohrCircle(sigma_x, sigma_y, tau_xy, title_str)
     x_circle = sigma_center + R * cos(theta);
     y_circle = R * sin(theta);
     
-    plot(x_circle/1e6, y_circle/1e6, 'b-', 'LineWidth', 2);
+    plot(x_circle/1e6, y_circle/1e6, [COLOR_PRIMARY '-'], 'LineWidth', 2);
     hold on;
+    
+    % Plot principal stresses
     plot([sigma_1/1e6, sigma_2/1e6], [0, 0], 'ro', 'MarkerSize', 8, 'LineWidth', 2);
+    
+    % Plot center point
     plot(sigma_center/1e6, 0, 'ko', 'MarkerSize', 6);
+    
+    % Plot one stress state point
+    plot(sigma_x/1e6, tau_xy/1e6, 'gs', 'MarkerSize', 8, 'LineWidth', 2);
     
     xlabel('Normal Stress (MPa)');
     ylabel('Shear Stress (MPa)');
@@ -1246,10 +1390,14 @@ function plotMohrCircle(sigma_x, sigma_y, tau_xy, title_str)
     grid on;
     axis equal;
     
-    % Add annotations
-    text(sigma_1/1e6, 0, sprintf('σ₁=%.1f MPa', sigma_1/1e6), 'VerticalAlignment', 'bottom');
-    text(sigma_2/1e6, 0, sprintf('σ₂=%.1f MPa', sigma_2/1e6), 'VerticalAlignment', 'top');
-    text(sigma_center/1e6, R/1e6, sprintf('τₘₐₓ=%.1f MPa', tau_max/1e6), 'HorizontalAlignment', 'center');
+    % Add padding to prevent lines from touching plot edges
+    xlim_current = xlim;
+    ylim_current = ylim;
+    x_padding = (xlim_current(2) - xlim_current(1)) * 0.1;
+    y_padding = (ylim_current(2) - ylim_current(1)) * 0.1;
+    xlim([xlim_current(1) - x_padding, xlim_current(2) + x_padding]);
+    ylim([ylim_current(1) - y_padding, ylim_current(2) + y_padding]);
+    
 end
 
 function createGoodmanDiagram(stress_results, S_ut, S_y, data)
@@ -1264,12 +1412,20 @@ function createGoodmanDiagram(stress_results, S_ut, S_y, data)
 %   data          - Wind turbine data structure
     
     % Access global configuration variables
-    global SAVE_PLOTS
+    global PLOT_D5_GOODMAN SAVE_PLOTS COLOR_PRIMARY COLOR_SECONDARY COLOR_ACCENT
+    
+    if ~PLOT_D5_GOODMAN
+        return;
+    end
     
     figure(7); set(gcf, 'Position', [300, 300, 800, 600]);
     
-    % Material properties
-    S_e = data.materials.steel.enduranceLimitFactor * S_ut;  % Endurance limit
+    % Material properties with proper endurance limit calculation
+    S_n_prime = 0.5 * S_ut;  % Base endurance limit
+    C_L = 1.0;  % Load factor (bending)
+    C_G = 0.9;  % Gradient factor
+    C_S = 0.7;  % Surface factor
+    S_e = S_n_prime * C_L * C_G * C_S;  % Modified endurance limit
     
     % Operating point
     sigma_m = stress_results.sigma_mean;
@@ -1280,22 +1436,38 @@ function createGoodmanDiagram(stress_results, S_ut, S_y, data)
     sigma_a_goodman = S_e * (1 - sigma_m_range / S_ut);
     
     % Plot Goodman line
-    plot(sigma_m_range/1e6, sigma_a_goodman/1e6, 'r-', 'LineWidth', 2, 'DisplayName', 'Goodman Line');
+    plot(sigma_m_range/1e6, sigma_a_goodman/1e6, [COLOR_PRIMARY '-'], 'LineWidth', 2, 'DisplayName', 'Goodman Line');
     hold on;
     
     % Plot operating point
-    plot(sigma_m/1e6, sigma_a/1e6, 'bo', 'MarkerSize', 10, 'LineWidth', 2, 'DisplayName', 'Operating Point');
+    plot(sigma_m/1e6, sigma_a/1e6, 'ko', 'MarkerSize', 10, 'LineWidth', 2, 'DisplayName', 'Operating Point');
     
     % Add yield line
     sigma_m_yield = linspace(0, S_y, 50);
     sigma_a_yield = S_y - sigma_m_yield;
-    plot(sigma_m_yield/1e6, sigma_a_yield/1e6, 'g--', 'LineWidth', 2, 'DisplayName', 'Yield Line');
+    plot(sigma_m_yield/1e6, sigma_a_yield/1e6, [COLOR_ACCENT '-'], 'LineWidth', 2, 'DisplayName', 'Yield Line');
+    
+    % Add line from origin through operating point
+    if sigma_m > 0
+        slope = sigma_a / sigma_m;
+        x_prop = linspace(0, 130e6, 50);
+        y_prop = slope * x_prop;
+        plot(x_prop/1e6, y_prop/1e6, [COLOR_SECONDARY '--'], 'LineWidth', 1.5, 'DisplayName', 'Load Line');
+    end
     
     xlabel('Mean Stress (MPa)');
     ylabel('Alternating Stress (MPa)');
     title('Goodman Diagram for Fatigue Analysis');
     legend('Location', 'best');
     grid on;
+    
+    % Add axis labels for Goodman line
+    text(S_ut/1e6, S_e/1e6*0.1, 'S_{ut}', 'HorizontalAlignment', 'center', 'FontSize', 10, 'Color', COLOR_PRIMARY);
+    text(S_e/1e6*0.1, S_e/1e6, 'S_e', 'HorizontalAlignment', 'center', 'FontSize', 10, 'Color', COLOR_PRIMARY);
+    
+    % Add axis labels for yield line
+    text(S_y/1e6, S_e/1e6*0.1, 'S_y', 'HorizontalAlignment', 'center', 'FontSize', 10, 'Color', COLOR_ACCENT);
+    text(S_e/1e6*0.1, S_y/1e6, 'S_y', 'HorizontalAlignment', 'center', 'FontSize', 10, 'Color', COLOR_ACCENT);
     
     % Add safety factor annotation
     n_fatigue = stress_results.fatigue_safety_factor;
@@ -1308,6 +1480,150 @@ function createGoodmanDiagram(stress_results, S_ut, S_y, data)
     fprintf('Goodman diagram saved as Goodman_Diagram_Analysis.png\n');
     end
 end
+
+function createTowerAnalysisPlots(deflection_results, load_cases, section_props, data)
+% CREATETOWERANALYSISPLOTS Create comprehensive tower analysis plots
+% Generates vertically stacked plots showing load distribution, shear force,
+% bending moment, slope, and deflection for both load cases, similar to HW02Q01.m
+%
+% Inputs:
+%   deflection_results - Deflection analysis results structure
+%   load_cases       - Loading scenarios structure
+%   section_props    - Tower section properties structure
+%   data             - Wind turbine data structure
+    
+    % Access global configuration variables
+    global PLOT_D5_TOWER SAVE_PLOTS COLOR_PRIMARY COLOR_SECONDARY COLOR_ACCENT
+    
+    % Check if plotting is enabled
+    if ~PLOT_D5_TOWER
+        return;
+    end
+    
+    % Get data
+    z = deflection_results.z;
+    tower_height = section_props.height(end);
+    total_height = max(z);
+    
+    % Calculate distributed loads for both cases
+    [wind_profile_1, drag_force_1, nacelle_load_1] = computeWindLoading(section_props, load_cases.case1, z, data);
+    [wind_profile_2, drag_force_2, nacelle_load_2] = computeWindLoading(section_props, load_cases.case2, z, data);
+    
+    
+    % Calculate shear forces from moment gradients
+    dz = z(2) - z(1);
+    shear_case1 = -diff(deflection_results.case1.moment) / dz;
+    shear_case2 = -diff(deflection_results.case2.moment) / dz;
+    z_shear = z(1:end-1) + dz/2;  % Shear at midpoints
+    
+    % Calculate slopes (first derivative of deflection)
+    slope_case1 = diff(deflection_results.case1.deflection) / dz;
+    slope_case2 = diff(deflection_results.case2.deflection) / dz;
+    z_slope = z(1:end-1) + dz/2;  % Slope at midpoints
+    
+    % Create figure with vertically stacked subplots
+    figure('Position', [100, 100, 800, 1200]);
+    
+    % Plot 1: Load Distribution - Case 1 (Dual Y-axis)
+    subplot(6,1,1);
+    hold off; % Ensure clean state
+    yyaxis left;
+    plot(z, drag_force_1, [COLOR_ACCENT '-'], 'LineWidth', 2);
+    ylabel('Wind Drag (N/m)', 'Color', COLOR_ACCENT);
+    ylim([0, max(drag_force_1)*1.1]);
+    hold on;
+    
+    yyaxis right;
+    plot(z, nacelle_load_1, [COLOR_SECONDARY '-'], 'LineWidth', 2);
+    ylabel('Nacelle Load (N/m)', 'Color', COLOR_SECONDARY);
+    if max(nacelle_load_1) > 1000
+        ylim([0, max(nacelle_load_1)*1.1]);
+    else
+        ylim([0, 1000]); % Default scale if no nacelle load
+    end
+    
+    title('Tower Analysis - Load Case 1 (Maximum Loading)');
+    grid on; xlim([0, total_height]);
+    yyaxis left; % Switch to left axis for vertical line
+    ylim([0, max(drag_force_1)*1.1]); % Ensure left axis has correct limits
+    plot([tower_height, tower_height], ylim, 'k:', 'LineWidth', 1);
+    
+    % Plot 2: Load Distribution - Case 2 (Dual Y-axis)
+    subplot(6,1,2);
+    hold off; % Ensure clean state
+    yyaxis left;
+    plot(z, drag_force_2, 'g-', 'LineWidth', 2);
+    ylabel('Wind Drag (N/m)', 'Color', 'g');
+    ylim([0, max(drag_force_2)*1.1]);
+    hold on;
+    
+    yyaxis right;
+    plot(z, nacelle_load_2, 'r-', 'LineWidth', 2);
+    ylabel('Nacelle Load (N/m)', 'Color', 'r');
+    if max(nacelle_load_2) > 1000
+        ylim([0, max(nacelle_load_2)*1.1]);
+    else
+        ylim([0, 1000]); % Default scale if no nacelle load
+    end
+    
+    title('Tower Analysis - Load Case 2 (Minimum Loading)');
+    grid on; xlim([0, total_height]);
+    yyaxis left; % Switch to left axis for vertical line
+    ylim([0, max(drag_force_2)*1.1]); % Ensure left axis has correct limits
+    plot([tower_height, tower_height], ylim, 'k:', 'LineWidth', 1);
+    
+    % Plot 3: Shear Force Distribution - Both Cases
+    subplot(6,1,3);
+    h1 = plot(z_shear, shear_case1/1000, [COLOR_PRIMARY '-'], 'LineWidth', 2); hold on;
+    h2 = plot(z_shear, shear_case2/1000, [COLOR_SECONDARY '--'], 'LineWidth', 2);
+    ylabel('Shear (kN)'); 
+    title('Shear Force Distribution');
+    grid on; xlim([0, total_height]);
+    plot([tower_height, tower_height], ylim, 'k:', 'LineWidth', 1);
+    plot([0, total_height], [0, 0], 'k--', 'LineWidth', 0.5);
+    legend([h1, h2], {'Case 1 (Max)', 'Case 2 (Min)'}, 'Location', 'best');
+    
+    % Plot 4: Bending Moment Distribution - Both Cases
+    subplot(6,1,4);
+    h1 = plot(z, deflection_results.case1.moment/1e6, [COLOR_PRIMARY '-'], 'LineWidth', 2); hold on;
+    h2 = plot(z, deflection_results.case2.moment/1e6, [COLOR_SECONDARY '--'], 'LineWidth', 2);
+    ylabel('Moment (MN·m)'); 
+    title('Bending Moment Distribution');
+    grid on; xlim([0, total_height]);
+    plot([tower_height, tower_height], ylim, 'k:', 'LineWidth', 1);
+    plot([0, total_height], [0, 0], 'k--', 'LineWidth', 0.5);
+    legend([h1, h2], {'Case 1 (Max)', 'Case 2 (Min)'}, 'Location', 'best');
+    
+    % Plot 5: Slope Distribution - Both Cases
+    subplot(6,1,5);
+    h1 = plot(z_slope, slope_case1*1000, [COLOR_PRIMARY '-'], 'LineWidth', 2); hold on;
+    h2 = plot(z_slope, slope_case2*1000, [COLOR_SECONDARY '--'], 'LineWidth', 2);
+    ylabel('Slope (mrad)'); 
+    title('Tower Slope Distribution');
+    grid on; xlim([0, total_height]);
+    plot([tower_height, tower_height], ylim, 'k:', 'LineWidth', 1);
+    plot([0, total_height], [0, 0], 'k--', 'LineWidth', 0.5);
+    legend([h1, h2], {'Case 1 (Max)', 'Case 2 (Min)'}, 'Location', 'best');
+    
+    % Plot 6: Deflection Distribution - Both Cases
+    subplot(6,1,6);
+    h1 = plot(z, deflection_results.case1.deflection*1000, [COLOR_PRIMARY '-'], 'LineWidth', 2); hold on;
+    h2 = plot(z, deflection_results.case2.deflection*1000, [COLOR_SECONDARY '--'], 'LineWidth', 2);
+    xlabel('Height (m)'); ylabel('Deflection (mm)'); 
+    title('Tower Deflection Distribution');
+    grid on; xlim([0, total_height]);
+    plot([tower_height, tower_height], ylim, 'k:', 'LineWidth', 1);
+    plot([0, total_height], [0, 0], 'k--', 'LineWidth', 0.5);
+    legend([h1, h2], {'Case 1 (Max)', 'Case 2 (Min)'}, 'Location', 'best');
+    
+    
+    % Save plot if enabled
+    if SAVE_PLOTS
+    saveas(gcf, 'Tower_Analysis_Complete.png');
+    fprintf('Tower analysis plots saved as Tower_Analysis_Complete.png\n');
+    end
+end
+
 
 function data = ParameterExtraction()
 % PARAMETEREXTRACTION Extracts all data from the Given Parameters folder
@@ -1827,7 +2143,11 @@ function createVisualization(r_stations, dCP, dCT, CP, CT, lambda, V_wind, omega
 %   omega       - Rotor speed [rad/s]
 
     % Access global configuration variables
-    global SAVE_PLOTS
+    global PLOT_D1_RESULTS SAVE_PLOTS COLOR_PRIMARY COLOR_SECONDARY
+    
+    if ~PLOT_D1_RESULTS
+        return;
+    end
     
     figure(1); set(gcf, 'Position', [100, 100, 1200, 800]);
     
@@ -1848,11 +2168,11 @@ function createVisualization(r_stations, dCP, dCT, CP, CT, lambda, V_wind, omega
         
         subplot(2, 2, 3);
         yyaxis left;
-        plot(r_stations, dCP, 'b-', 'LineWidth', 2);
+        plot(r_stations, dCP, [COLOR_PRIMARY '-'], 'LineWidth', 2);
         ylabel('Local C_P');
         ylim_left = ylim;
         yyaxis right;
-        plot(r_stations, dCT, 'r-', 'LineWidth', 2);
+        plot(r_stations, dCT, [COLOR_SECONDARY '-'], 'LineWidth', 2);
         ylabel('Local C_T');
         ylim_right = ylim;
         
@@ -1871,7 +2191,7 @@ function createVisualization(r_stations, dCP, dCT, CP, CT, lambda, V_wind, omega
         subplot(2, 2, 1);
         a_range = 0:0.01:0.5;
         CP_theory = 4*a_range.*(1-a_range).^2;
-        plot(a_range, CP_theory, 'b-', 'LineWidth', 2);
+        plot(a_range, CP_theory, [COLOR_PRIMARY '-'], 'LineWidth', 2);
         xlabel('Axial Induction Factor (a)');
         ylabel('Power Coefficient (C_P)');
         title('Theoretical C_P vs Axial Induction Factor');
@@ -1930,17 +2250,21 @@ function createPitchOptimizationPlot(pitch_range, CP_values, CT_values, optimal_
 %   lambda       - Tip speed ratio
 
     % Access global configuration variables
-    global SAVE_PLOTS
+    global PLOT_D2_OPTIMIZATION SAVE_PLOTS COLOR_PRIMARY COLOR_SECONDARY
+    
+    if ~PLOT_D2_OPTIMIZATION
+        return;
+    end
     
     figure(2); set(gcf, 'Position', [100, 100, 1000, 700]);
     
     yyaxis left;
-    plot(pitch_range, CP_values, 'b-o', 'LineWidth', 2, 'MarkerSize', 4);
+    plot(pitch_range, CP_values, [COLOR_PRIMARY '-o'], 'LineWidth', 2, 'MarkerSize', 4);
     ylabel('Coefficient of Power (C_P)');
     ylim_left = ylim;
     
     yyaxis right;
-    plot(pitch_range, CT_values, 'r-x', 'LineWidth', 2, 'MarkerSize', 4);
+    plot(pitch_range, CT_values, [COLOR_SECONDARY '-x'], 'LineWidth', 2, 'MarkerSize', 4);
     ylabel('Coefficient of Thrust (C_T)');
     ylim_right = ylim;
     
@@ -1983,7 +2307,11 @@ function create2DOptimizationPlot(lambda_range, pitch_range, CP_matrix, CT_matri
 %   V_wind         - Wind speed [m/s]
 
     % Access global configuration variables
-    global SAVE_PLOTS
+    global PLOT_D3_OPTIMIZATION SAVE_PLOTS COLOR_PRIMARY COLOR_SECONDARY
+    
+    if ~PLOT_D3_OPTIMIZATION
+        return;
+    end
     
     figure(3); set(gcf, 'Position', [100, 100, 1200, 800]);
     
@@ -2038,5 +2366,6 @@ function create2DOptimizationPlot(lambda_range, pitch_range, CP_matrix, CT_matri
         fprintf('2D optimization results visualization saved as 2D_CP_Optimization_Results.png\n');
     end
 end
+
 
 

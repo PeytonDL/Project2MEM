@@ -1,0 +1,267 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{enumitem}
+
+\title{Deliverable 5: Tower Deflection and Stress Analysis - Complete Methodology}
+\author{Wind Turbine Analysis Project}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Overview}
+Deliverable 5 performs comprehensive tower deflection and stress analysis for a wind turbine tower, considering distributed wind loading, rotor thrust forces, and fatigue analysis. The analysis uses beam theory with proper boundary conditions and includes Mohr's circle and Goodman diagram analysis.
+
+\section{Input Parameters}
+The analysis requires the following inputs from previous deliverables:
+\begin{itemize}
+    \item \textbf{Lambda ($\lambda$)}: Tip speed ratio from Deliverable 4
+    \item \textbf{Pitch angle ($\theta$)}: Blade pitch angle from Deliverable 4
+    \item \textbf{Wind speed ($V_{wind}$)}: 14.6 m/s (rated wind speed)
+\end{itemize}
+
+\section{Step-by-Step Analysis Process}
+
+\subsection{Step 1: Parameter Extraction and Setup}
+\textbf{Function:} \texttt{ParameterExtraction()}
+
+\textbf{Key Parameters Extracted:}
+\begin{itemize}
+    \item Tower specifications from \texttt{towerSpecs.csv}
+    \item Material properties (steel: $E = 200$ GPa, $S_{ut} = 450$ MPa, $S_y = 345$ MPa)
+    \item Air properties ($\rho_{air} = 1.1$ kg/m$^3$, $\mu = 1.8 \times 10^{-5}$ Pa$\cdot$s)
+    \item Turbine specifications (hub height = 80.4 m, rotor radius = 48 m)
+\end{itemize}
+
+\textbf{Tower Geometry:}
+\begin{itemize}
+    \item Tower height: 77.7 m (from tower specifications)
+    \item Hub height: 80.4 m
+    \item Nacelle region: 77.7 m to 83.1 m (5.4 m total height)
+\end{itemize}
+
+\subsection{Step 2: Rotor Thrust Force Calculation}
+\textbf{Function:} \texttt{calculateRotorThrust(data, V\_wind, lambda, pitch\_deg)}
+
+\textbf{Method:} Blade Element Momentum (BEM) Theory
+
+\textbf{Process:}
+\begin{enumerate}
+    \item Extract blade profile data (chord, twist, airfoil assignments)
+    \item Calculate local tip speed ratio: $\lambda_r = \lambda \cdot r/R$
+    \item For each blade station:
+    \begin{itemize}
+        \item Calculate induction factors: $a = 1/3$, $a' = -0.5 + 0.5\sqrt{1 + \frac{4}{\lambda_r^2}a(1-a)}$
+        \item Calculate inflow angle: $\phi = \tan^{-1}\left(\frac{1-a}{(1+a')\lambda_r}\right)$
+        \item Calculate angle of attack: $\alpha = \phi - (\theta_{twist} + \theta_{pitch})$
+        \item Interpolate airfoil coefficients: $C_L$, $C_D$ from performance data
+        \item Calculate force coefficients: $C_n = C_L\cos\phi + C_D\sin\phi$, $C_t = C_L\sin\phi - C_D\cos\phi$
+        \item Calculate relative velocity: $V_{rel} = \sqrt{(V_{wind}(1-a))^2 + (\omega r(1+a'))^2}$
+        \item Calculate sectional thrust: $dT = 0.5\rho V_{rel}^2 c C_n$
+    \end{itemize}
+    \item Integrate thrust: $T = B \int_{r_{hub}}^{R} dT \, dr$
+\end{enumerate}
+
+\textbf{Output:} Total rotor thrust force [N]
+
+\subsection{Step 3: Load Case Definition}
+\textbf{Function:} \texttt{defineLoadCases(V\_wind, thrust\_force, data, lambda, pitch\_deg)}
+
+\textbf{Two Load Cases:}
+\begin{enumerate}
+    \item \textbf{Load Case 1 (Maximum Loading):}
+    \begin{itemize}
+        \item Wind speed: $V_{wind} = 14.6$ m/s
+        \item Wind direction: 315° (from northwest)
+        \item Thrust force: Full calculated thrust
+    \end{itemize}
+    \item \textbf{Load Case 2 (Minimum Loading):}
+    \begin{itemize}
+        \item Wind speed: $V_{wind} = 7.3$ m/s (50\% of rated)
+        \item Wind direction: 157° (from southeast)
+        \item Thrust force: Recalculated for reduced wind speed
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Step 4: Tower Section Properties Calculation}
+\textbf{Function:} \texttt{computeTowerSectionProperties(tower\_specs)}
+
+\textbf{Geometric Properties:}
+\begin{itemize}
+    \item Outer diameter: $D_{outer}$ [m]
+    \item Wall thickness: $t$ [m]
+    \item Inner diameter: $D_{inner} = D_{outer} - 2t$ [m]
+    \item Cross-sectional area: $A = \frac{\pi}{4}(D_{outer}^2 - D_{inner}^2)$ [m$^2$]
+    \item Moment of inertia: $I = \frac{\pi}{64}(D_{outer}^4 - D_{inner}^4)$ [m$^4$]
+    \item Section modulus: $Z = \frac{I}{c} = \frac{2I}{D_{outer}}$ [m$^3$]
+\end{itemize}
+
+\textbf{Interpolation:} Properties interpolated at each height using linear interpolation.
+
+\subsection{Step 5: Wind Loading Calculation}
+\textbf{Function:} \texttt{computeWindLoading(section\_props, load\_case, z, data)}
+
+\textbf{Atmospheric Boundary Layer:}
+\begin{equation}
+V(z) = V_{ref} \left(\frac{z}{z_{ref}}\right)^{\epsilon}
+\end{equation}
+where $\epsilon = 1/7$ (power law exponent), $z_{ref} = 80.4$ m (hub height).
+
+\textbf{Drag Force Calculation:}
+\begin{enumerate}
+    \item Calculate Reynolds number: $Re = \frac{\rho V D}{\mu}$
+    \item Calculate drag coefficient: $C_d = f(Re)$ using \texttt{cylinderCDlocal()}
+    \item Calculate distributed drag force: $F_d = 0.5\rho V^2 D C_d$ [N/m]
+\end{enumerate}
+
+\textbf{Nacelle Load Distribution:}
+\begin{equation}
+q_{nacelle} = \frac{T_{thrust}}{h_{nacelle}} \quad \text{for } z \in [77.7, 83.1] \text{ m}
+\end{equation}
+where $h_{nacelle} = 5.4$ m (nacelle region height).
+
+\subsection{Step 6: Tower Deflection Analysis}
+\textbf{Function:} \texttt{solveTowerDeflection(section\_props, load\_cases, E, data)}
+
+\textbf{Discretization:}
+\begin{itemize}
+    \item Number of elements: $n = 50$
+    \item Height range: $z \in [0, 83.1]$ m
+    \item Element size: $\Delta z = \frac{83.1}{50} = 1.662$ m
+\end{itemize}
+
+\textbf{Moment Calculation:}
+For each height $z_i$:
+\begin{equation}
+M(z_i) = \int_{z_i}^{z_{max}} F_d(\xi)(\xi - z_i) \, d\xi + \int_{z_i}^{z_{max}} q_{nacelle}(\xi)(\xi - z_i) \, d\xi
+\end{equation}
+
+\textbf{Deflection Calculation:}
+\begin{enumerate}
+    \item Calculate curvature: $\kappa = \frac{M}{EI}$
+    \item Set curvature to zero in nacelle region (rigid assumption)
+    \item First integration (slope): $\theta = \int_0^z \kappa \, dz$
+    \item Second integration (deflection): $\delta = \int_0^z \theta \, dz$
+    \item Apply boundary condition: $\delta(0) = 0$
+\end{enumerate}
+
+\subsection{Step 7: Stress Analysis}
+\textbf{Function:} \texttt{computeStressAnalysis(section\_props, load\_cases, deflection\_results, E, data)}
+
+\textbf{Stress Components:}
+\begin{enumerate}
+    \item \textbf{Bending Stress:} $\sigma_b = \frac{Mc}{I}$ [Pa]
+    \item \textbf{Axial Stress:} $\sigma_a = \frac{T}{A}$ [Pa]
+    \item \textbf{Combined Stress:} $\sigma_{max} = \sigma_b + \sigma_a$ [Pa]
+\end{enumerate}
+
+\textbf{Directional Effects:}
+\begin{itemize}
+    \item Case 1: $\sigma_{b,eff} = \sigma_b \cos(315°) = \sigma_b \cdot 0.707$
+    \item Case 2: $\sigma_{b,eff} = \sigma_b \cos(157°) = \sigma_b \cdot (-0.921)$
+\end{itemize}
+
+\textbf{Fatigue Analysis:}
+\begin{itemize}
+    \item Mean stress: $\sigma_m = \frac{\sigma_{max,1} + \sigma_{max,2}}{2}$
+    \item Alternating stress: $\sigma_a = \frac{|\sigma_{max,1} - \sigma_{max,2}|}{2}$
+    \item Endurance limit: $S_e = 0.5S_{ut} \cdot C_L \cdot C_G \cdot C_S$
+    \item Safety factor: $n_f = \frac{1}{\frac{\sigma_a}{S_e} + \frac{\sigma_m}{S_{ut}}}$
+\end{itemize}
+
+\subsection{Step 8: Failure Analysis}
+\textbf{Static Failure Theories:}
+\begin{enumerate}
+    \item \textbf{Maximum Normal Stress Theory (MNST):}
+    \begin{equation}
+    SF_{MNST} = \frac{S_y}{\sigma_{max}}
+    \end{equation}
+    
+    \item \textbf{Maximum Shear Stress Theory (MSST):}
+    \begin{equation}
+    \tau_{max} = \frac{\sigma_{max}}{2}, \quad SF_{MSST} = \frac{S_{sy}}{\tau_{max}} = \frac{S_y/2}{\tau_{max}}
+    \end{equation}
+    
+    \item \textbf{Distortion Energy Theory (DET):}
+    \begin{equation}
+    \sigma_{eq} = \sigma_{max}, \quad SF_{DET} = \frac{S_y}{\sigma_{eq}}
+    \end{equation}
+\end{enumerate}
+
+\subsection{Step 9: Visualization}
+\textbf{Functions:}
+\begin{itemize}
+    \item \texttt{createTowerAnalysisPlots()}: Comprehensive load distribution plots
+    \item \texttt{createMohrCirclePlots()}: Mohr's circle analysis
+    \item \texttt{createGoodmanDiagram()}: Fatigue analysis diagram
+\end{itemize}
+
+\textbf{Key Plots:}
+\begin{enumerate}
+    \item Load distribution (wind drag + nacelle load)
+    \item Shear force distribution
+    \item Bending moment distribution
+    \item Slope distribution
+    \item Deflection distribution
+    \item Mohr's circles for stress states
+    \item Goodman diagram for fatigue analysis
+\end{enumerate}
+
+\section{Key Equations and Calculations}
+
+\subsection{Beam Theory}
+\begin{align}
+\frac{d^2\delta}{dz^2} &= \frac{M(z)}{E(z)I(z)} \\
+M(z) &= \int_z^{z_{max}} F(\xi)(\xi - z) \, d\xi \\
+V(z) &= -\frac{dM}{dz}
+\end{align}
+
+\subsection{Material Properties}
+\begin{align}
+E &= 200 \times 10^9 \text{ Pa} \\
+S_{ut} &= 450 \times 10^6 \text{ Pa} \\
+S_y &= 345 \times 10^6 \text{ Pa} \\
+\rho_{air} &= 1.1 \text{ kg/m}^3
+\end{align}
+
+\subsection{Fatigue Analysis}
+\begin{align}
+S_e &= S_{ut} \cdot 0.5 \cdot C_L \cdot C_G \cdot C_S \\
+C_L &= 1.0 \text{ (load factor)} \\
+C_G &= 0.9 \text{ (gradient factor)} \\
+C_S &= 0.7 \text{ (surface factor)}
+\end{align}
+
+\section{Output Results}
+The analysis provides:
+\begin{itemize}
+    \item Maximum tip deflection [m]
+    \item Maximum stress at tower base [MPa]
+    \item Fatigue safety factor
+    \item Static failure safety factors (MNST, MSST, DET)
+    \item Comprehensive stress and deflection distributions
+    \item Visualization plots for all analysis components
+\end{itemize}
+
+\section{Verification Checklist}
+To verify the solution:
+\begin{enumerate}
+    \item Check that thrust force calculation uses correct BEM parameters
+    \item Verify wind profile follows power law with $\epsilon = 1/7$
+    \item Confirm nacelle load is distributed over correct height range (77.7-83.1 m)
+    \item Validate that deflection calculation uses proper beam theory
+    \item Ensure stress analysis includes both bending and axial components
+    \item Verify fatigue analysis uses correct endurance limit calculation
+    \item Check that all safety factors are calculated correctly
+    \item Confirm plots show both wind drag and nacelle load lines
+\end{enumerate}
+
+\end{document}
