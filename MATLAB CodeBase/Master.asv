@@ -74,15 +74,15 @@ function runAllDeliverables()
     global SAVE_PLOTS VERBOSE_OUTPUT PARAMETERS_PATH
 
     % Define configuration variables (these are the defaults - edit these values to change behavior)
-    RUN_DELIVERABLE_1 = false;    % Basic BEM Analysis
+    RUN_DELIVERABLE_1 = fasle;    % Basic BEM Analysis
     RUN_DELIVERABLE_2 = false;    % Pitch Optimization
     RUN_DELIVERABLE_3 = false;    % 2D CP Optimization
-    RUN_DELIVERABLE_4 = false;    % Rated Power Pitch Control
+    RUN_DELIVERABLE_4 = true;    % Rated Power Pitch Control
     RUN_DELIVERABLE_5 = true;    % Tower Deflection Analysis
     
     PLOT_D1_RESULTS = false;      % D1: BEM Analysis Results
     PLOT_D2_OPTIMIZATION = false; % D2: Pitch Optimization Plot
-    PLOT_D3_OPTIMIZATION = false; % D3: 2D Optimization Plot
+    PLOT_D3_OPTIMIZATION = true; % D3: 2D Optimization Plot
     PLOT_D5_DEFLECTION = true;   % D5: Tower Deflection Plot
     PLOT_D5_MOHR = true;         % D5: Mohr Circle Plot
     PLOT_D5_GOODMAN = true;       % D5: Goodman Diagram

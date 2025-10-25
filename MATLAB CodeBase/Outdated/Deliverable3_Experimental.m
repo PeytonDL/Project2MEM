@@ -12,8 +12,8 @@ function [CP_max, optimal_conditions] = Deliverable3_Experimental(V_wind, lambda
     % Defaults from predefined deliverables when inputs are omitted
     if nargin < 1 || isempty(V_wind), V_wind = data.deliverables.part3.V_wind; end
     if nargin < 2 || isempty(lambda_min), lambda_min = 3; end
-    if nargin < 3 || isempty(lambda_max), lambda_max = 12; end
-    if nargin < 4 || isempty(lambda_step), lambda_step = 0.5; end
+    if nargin < 3 || isempty(lambda_max), lambda_max = 50; end
+    if nargin < 4 || isempty(lambda_step), lambda_step = 1; end
     if nargin < 5 || isempty(pitch_min), pitch_min = -15; end
     if nargin < 6 || isempty(pitch_max), pitch_max = 15; end
     if nargin < 7 || isempty(pitch_step), pitch_step = 1; end
@@ -40,7 +40,7 @@ function [CP_max, optimal_conditions] = Deliverable3_Experimental(V_wind, lambda
     fprintf('Performing 2D CP optimization...\n');
     
     % Debug logging (disabled by default). Set DEBUG=true to enable.
-    DEBUG = false;
+    DEBUG = true;
     DEBUG_FILE = 'Deliverable3_DebugLog.txt';
     if DEBUG
         debugInit(DEBUG_FILE, 'j k i lambda pitch r c a a_prime CL CD Cn Ct V_rel dT dQ dP');
@@ -171,7 +171,7 @@ function F = prandtlLossFactor(B, r, R, lambda_r, a, a_prime)
     f_root = (B/2) * (mu) / sphi;
     F_tip = (2/pi) * acos(exp(-max(0, f_tip)));
     F_root = (2/pi) * acos(exp(-max(0, f_root)));
-    F = max(1e-3, F_tip * F_root);
+    F = F_tip * F_root;
 end
 
 function debugInit(filePath, header)
@@ -198,30 +198,18 @@ function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, c, twist_rad, 
     a = 1/3;
     a_prime = -0.5 + 0.5 * sqrt(1 + (4/(lambda_r^2)) * a * (1 - a));
 
-    % Optional cap on tangential induction to avoid runaway V_rel at high λ
-    CAP_A_PRIME = true; A_PRIME_MAX = 0.3; STRICT_A_PRIME_ZERO = true;
-    if CAP_A_PRIME
-        a_prime = min(a_prime, A_PRIME_MAX);
-    end
-    if STRICT_A_PRIME_ZERO
-        a_prime = 0; % strongest stabilizer (classic optimum assumption)
-    end
+    % No caps on induction factors
 
     phi = atan((1 - a) / ((1 + a_prime) * lambda_r));
     alpha = phi - (twist_rad + pitch_rad);
     alpha_deg = rad2deg(alpha);
 
-    % Clamp AoA to measured polar range (no extrapolation) and cap polars
+    % Interpolate coefficients from airfoil data
     aoa = perf_data.AoA; clv = perf_data.CL; cdv = perf_data.CD;
     [aoa_sorted, idx] = sort(aoa);
     cl_sorted = clv(idx); cd_sorted = cdv(idx);
-    aoa_min = aoa_sorted(1); aoa_max = aoa_sorted(end);
-    alpha_clamped = min(max(alpha_deg, aoa_min), aoa_max);
-    CL = interp1(aoa_sorted, cl_sorted, alpha_clamped, 'linear');
-    CD = interp1(aoa_sorted, cd_sorted, alpha_clamped, 'linear');
-    % Cap extreme coefficients (tunable)
-    CL = max(-1.5, min(1.5, CL));
-    CD = max(0.0, min(1.2, CD));
+    CL = interp1(aoa_sorted, cl_sorted, alpha_deg, 'linear', 'extrap');
+    CD = interp1(aoa_sorted, cd_sorted, alpha_deg, 'linear', 'extrap');
 
     s = sin(phi); c = cos(phi);
     Cn = CL * c + CD * s;
@@ -234,14 +222,7 @@ function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, twist_ra
     a = 1/3;
     a_prime = -0.5 + 0.5 * sqrt(1 + (4/(lambda_r^2)) * a * (1 - a));
 
-    % Optional cap on tangential induction
-    CAP_A_PRIME = true; A_PRIME_MAX = 0.3; STRICT_A_PRIME_ZERO = true;
-    if CAP_A_PRIME
-        a_prime = min(a_prime, A_PRIME_MAX);
-    end
-    if STRICT_A_PRIME_ZERO
-        a_prime = 0;
-    end
+    % No caps on induction factors
     phi = atan((1 - a) / ((1 + a_prime) * lambda_r));
     alpha = phi - (twist_rad + pitch_rad); %#ok<NASGU>
     V_rel = sqrt((V_wind*(1-a))^2 + (omega_rad*r*(1+a_prime))^2);
@@ -346,17 +327,15 @@ function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMIterative(r, c, twist_rad
         phi = atan((1 - a) / ((1 + a_prime) * lambda_r + eps));
         alpha_deg = rad2deg(phi - (twist_rad + pitch_rad));
         [aoa_sorted, idx] = sort(perf_data.AoA); cl_sorted = perf_data.CL(idx); cd_sorted = perf_data.CD(idx);
-        alpha_clamped = min(max(alpha_deg, aoa_sorted(1)), aoa_sorted(end));
-        CL = interp1(aoa_sorted, cl_sorted, alpha_clamped, 'linear');
-        CD = interp1(aoa_sorted, cd_sorted, alpha_clamped, 'linear');
+        CL = interp1(aoa_sorted, cl_sorted, alpha_deg, 'linear', 'extrap');
+        CD = interp1(aoa_sorted, cd_sorted, alpha_deg, 'linear', 'extrap');
         s = sin(phi); cphi = cos(phi);
         Cn = CL * cphi + CD * s; Ct = CL * s - CD * cphi;
         F = prandtlLossFactor(B, r, R, lambda_r, a, a_prime);
         sigma = (B * c) / (2*pi*r + eps);
         a_new = 1 / (1 + (4*F*s*s)/(sigma * max(1e-8, Cn)));
         a_prime_new = 1 / ((4*F*s*cphi)/(sigma * max(1e-8, Ct)) - 1);
-        a_new = max(0, min(0.5, a_new));
-        a_prime_new = max(0, min(0.5, a_prime_new));
+        % No caps on induction factors
         a = a + relax*(a_new - a);
         a_prime = a_prime + relax*(a_prime_new - a_prime);
         if abs(a_new - a) < tol && abs(a_prime_new - a_prime) < tol
@@ -366,9 +345,8 @@ function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMIterative(r, c, twist_rad
     phi = atan((1 - a) / ((1 + a_prime) * lambda_r + eps));
     alpha_deg = rad2deg(phi - (twist_rad + pitch_rad));
     [aoa_sorted, idx] = sort(perf_data.AoA); cl_sorted = perf_data.CL(idx); cd_sorted = perf_data.CD(idx);
-    alpha_clamped = min(max(alpha_deg, aoa_sorted(1)), aoa_sorted(end));
-    CL = interp1(aoa_sorted, cl_sorted, alpha_clamped, 'linear');
-    CD = interp1(aoa_sorted, cd_sorted, alpha_clamped, 'linear');
+    CL = interp1(aoa_sorted, cl_sorted, alpha_deg, 'linear', 'extrap');
+    CD = interp1(aoa_sorted, cd_sorted, alpha_deg, 'linear', 'extrap');
     s = sin(phi); cphi = cos(phi);
     Cn = CL * cphi + CD * s; Ct = CL * s - CD * cphi;
     F = prandtlLossFactor(B, r, R, lambda_r, a, a_prime);
