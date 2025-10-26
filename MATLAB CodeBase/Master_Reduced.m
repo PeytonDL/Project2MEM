@@ -64,7 +64,7 @@ function config = createConfig()
     config.plot_d5_tower = true;        % D5: Tower Analysis Plots
     
     % Output options
-    config.save_plots = false;          % Save plots to files
+    config.save_plots = true;          % Save plots to files
     config.verbose_output = false;       % Show detailed progress information
     config.parameters_path = 'Auxilary Information/Given Parameters/';
     
