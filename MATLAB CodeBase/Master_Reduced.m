@@ -35,10 +35,6 @@ function rpm = rad2rpm(rad)
     rpm = rad * 60 / (2 * pi);
 end
 
-function m = mm2m(mm)
-% MM2M Convert mm to m
-    m = mm / 1000;
-end
 
 function config = createConfig()
 % CREATECONFIG Create configuration structure
@@ -64,7 +60,7 @@ function config = createConfig()
     config.plot_d5_tower = true;        % D5: Tower Analysis Plots
     
     % Output options
-    config.save_plots = true;          % Save plots to files
+    config.save_plots = false;          % Save plots to files
     config.verbose_output = false;       % Show detailed progress information
     config.parameters_path = 'Auxilary Information/Given Parameters/';
     
@@ -106,7 +102,7 @@ function blade_stations = prepareBladeStations(data, exclude_hub)
     blade_stations.n_stations = numel(r_stations);
 end
 
-function [dT, dQ, dP] = calculateBEMAtStation(station_data, conditions, config, data)
+function [dT, dQ, dP] = calculateBEMAtStation(station_data, conditions, ~, data)
 % CALCULATEBEMATSTATION Calculate BEM coefficients for a single station
 % Inputs: station_data, conditions, config, data structures
 % Outputs: dT, dQ, dP - Thrust, torque, and power per unit length
@@ -114,7 +110,7 @@ function [dT, dQ, dP] = calculateBEMAtStation(station_data, conditions, config, 
     rho = data.materials.air.density;
     
     % Get section coefficients using existing function
-    [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients(...
+    [~, ~, ~, ~, Cn, Ct, V_rel] = getSectionCoefficients(...
         station_data.airfoil, station_data.twist_deg, station_data.r, station_data.c, ...
         conditions.lambda_r, conditions.V_wind, conditions.omega_rad, conditions.pitch_rad, ...
         data, rho, data.materials.air.viscosity);
@@ -132,7 +128,6 @@ function [CP, CT, P, T] = integrateBladeLoads(r_stations, dT, dQ, omega_rad, B, 
 
     % Integrate loads across blade span
     T = B * trapz(r_stations, dT); % Total thrust
-    Q = B * trapz(r_stations, dQ); % Total torque
     P = B * trapz(r_stations, dQ * omega_rad); % Total power
     
     % Calculate coefficients
@@ -171,7 +166,6 @@ function runAllDeliverables()
     % Extract data once for all deliverables
     data = ParameterExtraction(config);
 
-    fprintf('=== MASTER WIND TURBINE ANALYSIS ===\n');
     if config.verbose_output
         fprintf('Configuration: Deliverables [%s], Save: %s\n', ...
             mat2str([config.run_deliverable_1, config.run_deliverable_2, config.run_deliverable_3, config.run_deliverable_4, config.run_deliverable_5]), ...
@@ -190,7 +184,7 @@ function runAllDeliverables()
             fprintf('Running Deliverable 1...\n');
             [CP1, CT1] = Deliverable1(config, data);
             results.D1 = struct('CP', CP1, 'CT', CT1);
-            fprintf('D1 Complete: CP=%.4f, CT=%.4f\n\n', CP1, CT1);
+            fprintf('D1 Complete: CP=%.4f, CT=%.4f\n', CP1, CT1);
         else
             fprintf('Skipping Deliverable 1 (disabled)\n\n');
         end
@@ -200,7 +194,7 @@ function runAllDeliverables()
             fprintf('Running Deliverable 2...\n');
             [CP2, optimal_conditions] = Deliverable2(config, data);
             results.D2 = struct('CP', CP2, 'optimal_conditions', optimal_conditions);
-            fprintf('D2 Complete: Max CP=%.4f at pitch=%.1f°\n\n', CP2, optimal_conditions.pitch_angle);
+            fprintf('D2 Complete: Max CP=%.4f at pitch=%.1f°\n', CP2, optimal_conditions.pitch_angle);
         else
             fprintf('Skipping Deliverable 2 (disabled)\n\n');
         end
@@ -210,7 +204,7 @@ function runAllDeliverables()
             fprintf('Running Deliverable 3...\n');
             [CP3, optimal_conditions_3D] = Deliverable3(config, data);
             results.D3 = struct('CP', CP3, 'optimal_conditions', optimal_conditions_3D);
-            fprintf('D3 Complete: Max CP=%.4f at λ=%.2f, pitch=%.1f°\n\n', CP3, optimal_conditions_3D.lambda, optimal_conditions_3D.pitch_angle);
+            fprintf('D3 Complete: Max CP=%.4f at λ=%.2f, pitch=%.1f°\n', CP3, optimal_conditions_3D.lambda, optimal_conditions_3D.pitch_angle);
         else
             fprintf('Skipping Deliverable 3 (disabled)\n\n');
         end
@@ -220,7 +214,7 @@ function runAllDeliverables()
             fprintf('Running Deliverable 4...\n');
             result4 = Deliverable4(config, data);
             results.D4 = result4;
-            fprintf('D4 Complete: Required pitch=%.1f° at λ=%.2f\n\n', result4.pitch_deg, result4.lambda);
+            fprintf('D4 Complete: Required pitch=%.1f° at λ=%.2f\n', result4.pitch_deg, result4.lambda);
         else
             fprintf('Skipping Deliverable 4 (disabled)\n\n');
             % Create dummy result for D5 if needed
@@ -232,7 +226,7 @@ function runAllDeliverables()
             fprintf('Running Deliverable 5...\n');
             result5 = Deliverable5(config, data, result4.lambda, result4.pitch_deg);
             results.D5 = result5;
-            fprintf('D5 Complete: Max deflection=%.3f m, Safety factor=%.2f\n\n', max(abs(result5.deflection.deflection)), result5.stress.fatigue_safety_factor);
+            fprintf('D5 Complete: Max deflection=%.3f m, Safety factor=%.2f\n', max(abs(result5.deflection.deflection)), result5.stress.fatigue_safety_factor);
         else
             fprintf('Skipping Deliverable 5 (disabled)\n\n');
         end
@@ -274,17 +268,10 @@ function [CP, CT] = Deliverable1(config, data)
 % Calculates power and thrust coefficients for specified operating conditions
 % Usage: [CP, CT] = Deliverable1(config, data);
 
-    fprintf('=== Wind Turbine Analysis - Deliverable 1 ===\n\n');
-    
     % Extract operating conditions
     V_wind = data.deliverables.part1.V_wind;
     omega = data.deliverables.part1.omega_rpm;
     pitch_angle = data.deliverables.part1.pitch_deg;
-    
-    fprintf('Operating Conditions:\n');
-    fprintf('  Wind velocity: %.1f m/s\n', V_wind);
-    fprintf('  Rotational velocity: %.1f rpm\n', omega);
-    fprintf('  Pitch angle: %.1f degrees\n', pitch_angle);
     
     % Calculate derived parameters
     omega_rad = rpm2rad(omega);
@@ -293,16 +280,8 @@ function [CP, CT] = Deliverable1(config, data)
     rho = data.materials.air.density;
     lambda = omega_rad * R / V_wind;
     
-    fprintf('\nTurbine Specifications:\n');
-    fprintf('  Rotor radius: %.1f m\n', R);
-    fprintf('  Swept area: %.1f m²\n', A);
-    fprintf('  Air density: %.2f kg/m³\n', rho);
-    fprintf('  Tip speed ratio (λ): %.3f\n', lambda);
-    
     % Prepare blade stations
-    fprintf('\nPerforming blade element momentum analysis...\n');
     blade_stations = prepareBladeStations(data, true); % Exclude hub region
-    fprintf('  Analyzing %d blade stations (hub region excluded)...\n', blade_stations.n_stations);
     
     % Initialize arrays
     dT = zeros(blade_stations.n_stations, 1);
@@ -330,26 +309,19 @@ function [CP, CT] = Deliverable1(config, data)
         
         [dT(i), dQ(i), dP(i)] = calculateBEMAtStation(station_data, conditions, config, data);
         
-        dCP(i) = dP(i) / (0.5 * rho * V_wind^3);
-        dCT(i) = dT(i) / (0.5 * rho * V_wind^2);
+        % Calculate local coefficients using rotor swept area as reference (same as overall Cp/Ct)
+        % This makes local values directly comparable to overall coefficients
+        dCP(i) = dP(i) / (0.5 * rho * A * V_wind^3);
+        dCT(i) = dT(i) / (0.5 * rho * A * V_wind^2);
     end
     
     % Integrate loads to get total coefficients
-    [CP, CT, P, T] = integrateBladeLoads(blade_stations.r_stations, dT, dQ, omega_rad, B, A, V_wind, rho);
-    
-    fprintf('\n=== RESULTS ===\n');
-    fprintf('Coefficient of Power (C_P): %.4f\n', CP);
-    fprintf('Coefficient of Thrust (C_T): %.4f\n', CT);
-    fprintf('\nCalculated Values:\n');
-    fprintf('Power: %.1f kW\n', P/1000);
-    fprintf('Thrust: %.1f kN\n', T/1000);
-    fprintf('Torque: %.1f kN·m\n', (T*R)/1000); % Approximate torque from thrust
+    [CP, CT, ~, ~] = integrateBladeLoads(blade_stations.r_stations, dT, dQ, omega_rad, B, A, V_wind, rho);
     
     % Create visualization if enabled
     if config.plot_d1_results
         createVisualization(blade_stations.r_stations, dCP, dCT, CP, CT, lambda, V_wind, omega, config);
     end
-    fprintf('\nAnalysis complete!\n');
 end
 
 % ============================================================================
@@ -362,8 +334,6 @@ function [CP_max, optimal_conditions] = Deliverable2(config, data, V_wind, lambd
 % Finds maximum power coefficient by varying pitch angle
 % Usage: [CP_max, optimal_conditions] = Deliverable2(config, data);
 
-    fprintf('=== Wind Turbine Pitch Angle Optimization ===\n\n');
-    
     % Defaults from predefined deliverables when inputs are omitted
     if nargin < 3 || isempty(V_wind), V_wind = data.deliverables.part2.V_wind; end
     if nargin < 4 || isempty(lambda), lambda = data.deliverables.part2.lambda; end
@@ -371,20 +341,12 @@ function [CP_max, optimal_conditions] = Deliverable2(config, data, V_wind, lambd
     if nargin < 6 || isempty(pitch_max), pitch_max = 15; end
     if nargin < 7 || isempty(pitch_step), pitch_step = 1; end
 
-    fprintf('Optimizing CP for:\n');
-    fprintf('  Wind velocity: %.1f m/s\n', V_wind);
-    fprintf('  Tip speed ratio: %.2f\n', lambda);
-    fprintf('  Pitch angle range: %.1f to %.1f degrees\n', pitch_min, pitch_max);
-    fprintf('  Step size: %.1f degrees\n\n', pitch_step);
-    
     % Calculate derived parameters
     R = data.turbine.performance.rotorRadius;
     A = data.turbine.calculated.rotorArea;
     rho = data.materials.air.density;
     omega_rad = (lambda * V_wind) / R;
     omega_rpm = rad2rpm(omega_rad);
-    
-    fprintf('  Rotational speed: %.1f rpm\n', omega_rpm);
     
     % Prepare blade stations
     blade_stations = prepareBladeStations(data, true); % Exclude hub region
@@ -397,8 +359,6 @@ function [CP_max, optimal_conditions] = Deliverable2(config, data, V_wind, lambd
     CT_values = zeros(n_points, 1);
     P_values = zeros(n_points, 1);
     T_values = zeros(n_points, 1);
-    
-    fprintf('Performing pitch angle optimization...\n');
     
     % Optimize over pitch angles
     for j = 1:n_points
@@ -447,18 +407,10 @@ function [CP_max, optimal_conditions] = Deliverable2(config, data, V_wind, lambd
     optimal_conditions.T = T_values(max_idx);
     optimal_conditions.V_wind = V_wind;
     
-    fprintf('\n=== OPTIMIZATION RESULTS ===\n');
-    fprintf('Maximum CP: %.4f\n', CP_max);
-    fprintf('Optimal pitch angle: %.1f degrees\n', optimal_pitch);
-    fprintf('Optimal thrust coefficient: %.4f\n', optimal_conditions.CT);
-    fprintf('Optimal power: %.1f kW\n', optimal_conditions.P/1000);
-    fprintf('Optimal thrust: %.1f kN\n', optimal_conditions.T/1000);
-    
     % Create visualization if enabled
     if config.plot_d2_optimization
         createPitchOptimizationPlot(pitch_range, CP_values, CT_values, optimal_pitch, CP_max, V_wind, lambda, config);
     end
-    fprintf('\nPitch optimization complete!\n');
 end
 
 % ============================================================================
@@ -472,8 +424,6 @@ function [CP_max, optimal_conditions] = Deliverable3(config, data, V_wind, lambd
 % Finds maximum power coefficient by varying tip speed ratio and pitch angle
 % Usage: [CP_max, optimal_conditions] = Deliverable3(config, data);
 
-    fprintf('=== Wind Turbine 2D CP Optimization ===\n\n');
-
     % Defaults from predefined deliverables when inputs are omitted
     if nargin < 3 || isempty(V_wind), V_wind = data.deliverables.part3.V_wind; end
     if nargin < 4 || isempty(lambda_min), lambda_min = 3; end
@@ -483,11 +433,6 @@ function [CP_max, optimal_conditions] = Deliverable3(config, data, V_wind, lambd
     if nargin < 8 || isempty(pitch_max), pitch_max = 15; end
     if nargin < 9 || isempty(pitch_step), pitch_step = 1; end
 
-    fprintf('Optimizing CP for:\n');
-    fprintf('  Wind velocity: %.1f m/s\n', V_wind);
-    fprintf('  Tip speed ratio range: %.1f to %.1f (step: %.1f)\n', lambda_min, lambda_max, lambda_step);
-    fprintf('  Pitch angle range: %.1f to %.1f degrees (step: %.1f)\n', pitch_min, pitch_max, pitch_step);
-    
     R = data.turbine.performance.rotorRadius;
     A = data.turbine.calculated.rotorArea;
     rho = data.materials.air.density;
@@ -502,8 +447,6 @@ function [CP_max, optimal_conditions] = Deliverable3(config, data, V_wind, lambd
     P_matrix = zeros(n_pitch, n_lambda);
     T_matrix = zeros(n_pitch, n_lambda);
     
-    fprintf('Performing 2D CP optimization...\n');
-    
     blade_profile = data.blade.profile;
     % Exclude hub region to avoid non-lifting root effects
     r_stations = blade_profile.DistanceFromCenterOfRotation / 1000; % station radii [m]
@@ -516,16 +459,12 @@ function [CP_max, optimal_conditions] = Deliverable3(config, data, V_wind, lambd
     n_stations = numel(r_stations);
     B = data.turbine.characteristics.blades;
     
-    total_iterations = n_lambda * n_pitch;
-    current_iteration = 0;
-    
     for j = 1:n_lambda
         lambda = lambda_range(j);
         omega_rad = (lambda * V_wind) / R;
         
         for k = 1:n_pitch
             pitch_angle = pitch_range(k);
-            current_iteration = current_iteration + 1;
             
             pitch_rad = deg2rad(pitch_angle);
             dT = zeros(n_stations, 1);
@@ -540,7 +479,7 @@ function [CP_max, optimal_conditions] = Deliverable3(config, data, V_wind, lambd
                 
                 lambda_r = lambda * r / R; % local tip-speed ratio at radius r
                 
-                [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, twist, r, c, ...
+                [~, ~, ~, ~, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, twist, r, c, ...
                     lambda_r, V_wind, omega_rad, pitch_rad, data, rho, data.materials.air.viscosity);
                 
                 dT(i) = 0.5 * rho * V_rel^2 * c * Cn;
@@ -549,7 +488,6 @@ function [CP_max, optimal_conditions] = Deliverable3(config, data, V_wind, lambd
             end
             
             T_total = B * trapz(r_stations, dT);
-            Q_total = B * trapz(r_stations, dQ);
             P_total = B * trapz(r_stations, dP);
             
             CP_matrix(k, j) = P_total / (0.5 * rho * A * V_wind^3);
@@ -579,20 +517,10 @@ function [CP_max, optimal_conditions] = Deliverable3(config, data, V_wind, lambd
     optimal_conditions.T = T_matrix(optimal_pitch_idx, optimal_lambda_idx);
     optimal_conditions.V_wind = V_wind;
     
-    fprintf('\n=== OPTIMIZATION RESULTS ===\n');
-    fprintf('Maximum CP: %.4f\n', CP_max);
-    fprintf('Optimal tip speed ratio: %.3f\n', optimal_lambda);
-    fprintf('Optimal pitch angle: %.1f degrees\n', optimal_pitch);
-    fprintf('Optimal rotational speed: %.1f rpm\n', optimal_omega_rpm);
-    fprintf('Optimal thrust coefficient: %.4f\n', optimal_conditions.CT);
-    fprintf('Optimal power: %.1f kW\n', optimal_conditions.P/1000);
-    fprintf('Optimal thrust: %.1f kN\n', optimal_conditions.T/1000);
-    
     % Create visualization if enabled
     if config.plot_d3_optimization
         create2DOptimizationPlot(lambda_range, pitch_range, CP_matrix, CT_matrix, optimal_lambda, optimal_pitch, CP_max, V_wind, config);
     end
-    fprintf('\n2D optimization complete!\n');
 end
 
 % ============================================================================
@@ -608,8 +536,6 @@ function result = Deliverable4(config, data)
 %
 % Usage: result = Deliverable4(config, data);
 % Returns struct with fields: pitch_deg, lambda, omega_rad, omega_rpm, P, CP
-
-    fprintf('=== Deliverable 4: Rated Power Pitch Determination ===\n\n');
 
     % Inputs and constants
     V_wind = data.deliverables.part4.V_wind;           % m/s
@@ -627,10 +553,8 @@ function result = Deliverable4(config, data)
     lambda_range = lambda_min:lambda_step:lambda_max;
 
     % Pitch sweep (deg) - conservative range for feathering
-    pitch_min = 0; pitch_max = 30; pitch_step = 0.5;
+    pitch_min = 0; pitch_max = 30; pitch_step = 0.1;
     pitch_range = pitch_min:pitch_step:pitch_max;
-
-    fprintf('Wind = %.2f m/s, Rated Power = %.1f kW, λ in [%.2f, %.2f]\n', V_wind, ratedPower/1e3, lambda_min, lambda_max);
 
     % Precompute station data
     blade_profile = data.blade.profile;
@@ -663,7 +587,7 @@ function result = Deliverable4(config, data)
     for j = 1:numel(pitch_range)
         pitch_deg = pitch_range(j);
         pitch_rad = deg2rad(pitch_deg);
-        best_CP = -inf; best_lambda = lambda_range(1); best_P = 0; best_omega = 0;
+        best_CP = -inf; best_lambda = lambda_range(1);
 
         for lam = lambda_range
             omega_rad = lam * V_wind / R;
@@ -680,7 +604,7 @@ function result = Deliverable4(config, data)
                 airfoil = airfoil_raw{i};
                 lambda_r = lam * r / R;
 
-                [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, twist_deg, r, c, ...
+                [~, ~, ~, ~, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, twist_deg, r, c, ...
                     lambda_r, V_wind, omega_rad, pitch_rad, data, rho, data.materials.air.viscosity, B, R);
 
 
@@ -689,13 +613,11 @@ function result = Deliverable4(config, data)
                 dP(i) = dQ(i) * omega_rad;
             end
 
-            T_total = B * trapz(r_stations, dT);
-            Q_total = B * trapz(r_stations, dQ);
             P_total = B * trapz(r_stations, dP);
 
             CP_val = P_total / (0.5 * rho * A * V_wind^3);
             if CP_val > best_CP
-                best_CP = CP_val; best_lambda = lam; best_P = P_total; best_omega = omega_rad;
+                best_CP = CP_val; best_lambda = lam;
             end
         end
 
@@ -720,10 +642,6 @@ function result = Deliverable4(config, data)
     CP_req = CP_pitch(idx_ok);
     P_req = P_pitch(idx_ok);
 
-    fprintf('\n=== Recommended Pitch ===\n');
-    fprintf('Pitch angle: %.2f deg\n', pitch_req);
-    fprintf('At λ=%.2f (ω=%.1f rpm), predicted P=%.1f kW (rated=%.1f kW)\n', lambda_req, omega_req*60/(2*pi), P_req/1e3, ratedPower/1e3);
-
     % Output struct
     result = struct('pitch_deg', pitch_req, 'lambda', lambda_req, 'omega_rad', omega_req, ...
                     'omega_rpm', omega_req*60/(2*pi), 'P', P_req, 'CP', CP_req, ...
@@ -735,6 +653,9 @@ function result = Deliverable4(config, data)
         plot(pitch_range, P_pitch/1e3, [config.color_primary '-'], 'LineWidth', 2); hold on;
         yline(ratedPower/1e3, 'r--', 'Rated');
         plot(pitch_req, P_req/1e3, 'ko', 'MarkerSize', 8, 'LineWidth', 2);
+        text(pitch_req + 0.5, 2750, sprintf('Pitch: %.1f°', pitch_req), ...
+            'FontSize', 10, 'FontWeight', 'bold', 'Color', 'black', ...
+            'BackgroundColor', 'white', 'EdgeColor', 'black');
         xlabel('Pitch (deg)'); ylabel('Power (kW)'); title(sprintf('Power vs Pitch (V = %.1f m/s)', V_wind)); grid on;
         
         % Save plot if enabled
@@ -766,14 +687,11 @@ function result = Deliverable5(config, data, lambda, pitch_deg)
 %         pitch_deg - pitch angle from Deliverable 4
 % Returns struct with deflection, stress, and fatigue analysis results
 
-    fprintf('=== Deliverable 5: Tower Deflection and Stress Analysis ===\n\n');
-    
     % Tower geometry and material properties
     tower_specs = data.tower.specs;
     E = data.materials.steel.youngsModulus;           % Pa
     S_ut = data.materials.steel.tensileStrength;     % Pa
     S_y = data.materials.steel.yieldStrength;        % Pa
-    rho_air = data.materials.air.density;           % kg/m³
     
     % Tower dimensions (convert from mm to m)
     tower_height = tower_specs.Height_mm_(end) / 1000;  % m
@@ -781,33 +699,22 @@ function result = Deliverable5(config, data, lambda, pitch_deg)
     
     % Wind conditions
     V_wind = data.deliverables.part4.V_wind;  % m/s (rated wind speed)
-    epsilon = 1/7;  % Power law exponent for atmospheric boundary layer
-    
-    fprintf('Tower height: %.1f m, Hub height: %.1f m\n', tower_height, hub_height);
-    fprintf('Wind speed: %.1f m/s, E = %.0f GPa\n', V_wind, E/1e9);
     
     % Calculate thrust force from BEM analysis
-    fprintf('\nCalculating rotor thrust force...\n');
-    thrust_force = calculateRotorThrust(data, V_wind, lambda, pitch_deg); %Checked
-    fprintf('Total thrust force: %.1f kN\n', thrust_force/1000);
+    thrust_force = calculateRotorThrust(data, V_wind, lambda, pitch_deg);
     
     % Define loading scenarios
     load_cases = defineLoadCases(V_wind, thrust_force, data, lambda, pitch_deg);
     
     % Calculate tower section properties
-    fprintf('\nComputing tower section properties...\n');
     section_props = computeTowerSectionProperties(tower_specs);
     
     % Solve deflection for both load cases
-    fprintf('Solving tower deflection...\n');
     deflection_results = solveTowerDeflection(section_props, load_cases, E, data);
     
     % Calculate stresses at tower base
-    fprintf('Computing stress analysis at tower base...\n');
     stress_results = computeStressAnalysis(section_props, load_cases, deflection_results, E, data);
     
-    % Create visualizations
-    fprintf('Creating visualizations...\n');
     % Create visualizations if enabled
     if config.plot_d5_deflection
         createTowerDeflectionPlot(deflection_results, section_props, config);
@@ -833,11 +740,6 @@ function result = Deliverable5(config, data, lambda, pitch_deg)
     result.tower_height = tower_height;
     result.hub_height = hub_height;
     result.material_properties = struct('E', E, 'S_ut', S_ut, 'S_y', S_y);
-    
-    fprintf('\n=== ANALYSIS COMPLETE ===\n');
-    fprintf('Maximum tip deflection: %.3f m\n', max(abs(deflection_results.deflection)));
-    fprintf('Maximum stress at base: %.1f MPa\n', max(stress_results.max_stress)/1e6);
-    fprintf('Fatigue safety factor: %.2f\n', stress_results.fatigue_safety_factor);
 end
 
 function thrust_force = calculateRotorThrust(data, V_wind, lambda, pitch_deg)
@@ -856,7 +758,6 @@ function thrust_force = calculateRotorThrust(data, V_wind, lambda, pitch_deg)
     
     % Turbine parameters
     R = data.turbine.performance.rotorRadius;
-    A = data.turbine.calculated.rotorArea;
     rho = data.materials.air.density;
     B = data.turbine.characteristics.blades;
     
@@ -888,7 +789,7 @@ function thrust_force = calculateRotorThrust(data, V_wind, lambda, pitch_deg)
         airfoil = airfoil_raw{i};
         lambda_r = lambda * r / R;
         
-        [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, twist_deg, r, c, ...
+        [~, ~, ~, ~, Cn, ~, V_rel] = getSectionCoefficients(airfoil, twist_deg, r, c, ...
             lambda_r, V_wind, omega_rad, pitch_rad, data, rho, data.materials.air.viscosity, B, R);
         
         dT(i) = 0.5 * rho * V_rel^2 * c * Cn;
@@ -926,12 +827,6 @@ function load_cases = defineLoadCases(V_wind, thrust_force, data, lambda, pitch_
     % Calculate thrust force for reduced wind speed using BEM analysis
     load_cases.case2.thrust_force = calculateRotorThrust(data, V_wind * 0.5, lambda, pitch_deg);
     load_cases.case2.description = 'Minimum loading - wind from 157°';
-    
-    
-    fprintf('Load Case 1: V=%.1f m/s, θ=%.0f°, T=%.1f kN\n', ...
-        load_cases.case1.wind_speed, load_cases.case1.wind_direction, load_cases.case1.thrust_force/1000);
-    fprintf('Load Case 2: V=%.1f m/s, θ=%.0f°, T=%.1f kN\n', ...
-        load_cases.case2.wind_speed, load_cases.case2.wind_direction, load_cases.case2.thrust_force/1000);
 end
 
 function section_props = computeTowerSectionProperties(tower_specs)
@@ -945,7 +840,6 @@ function section_props = computeTowerSectionProperties(tower_specs)
 % Outputs:
 %   section_props - Structure containing geometric properties for each section
     
-    n_sections = height(tower_specs);
     section_props = struct();
     
     % Initialize arrays
@@ -959,9 +853,6 @@ function section_props = computeTowerSectionProperties(tower_specs)
     section_props.I = pi/64 * (section_props.OD.^4 - section_props.ID.^4);    % m⁴
     section_props.c = section_props.OD / 2;  % m (outer radius)
     section_props.section_modulus = section_props.I ./ section_props.c;  % m³
-    
-    fprintf('Tower sections: %d segments\n', n_sections);
-    fprintf('Base diameter: %.2f m, Top diameter: %.2f m\n', section_props.OD(1), section_props.OD(end));
 end
 
 function deflection_results = solveTowerDeflection(section_props, load_cases, E, data)
@@ -985,13 +876,9 @@ function deflection_results = solveTowerDeflection(section_props, load_cases, E,
     nacelle_height = (hub_height - tower_height) * 2;
     total_height = tower_height + nacelle_height;
     z = linspace(0, total_height, n_elements+1);  % Extend to total height
-    dz = z(2) - z(1);
     
     % Initialize deflection arrays
     deflection_results.z = z;
-    deflection_results.deflection = zeros(size(z));
-    deflection_results.moment = zeros(size(z));
-    
     % Calculate deflection for Load Case 1 (maximum)
     [deflection_case1, moment_case1] = calculateDeflectionCase(section_props, load_cases.case1, z, E, data);
     deflection_results.deflection = deflection_case1;
@@ -1002,8 +889,6 @@ function deflection_results = solveTowerDeflection(section_props, load_cases, E,
     deflection_results.case1 = struct('deflection', deflection_case1, 'moment', moment_case1);
     [deflection_case2, moment_case2] = calculateDeflectionCase(section_props, load_cases.case2, z, E, data);
     deflection_results.case2 = struct('deflection', deflection_case2, 'moment', moment_case2);
-    
-    fprintf('Maximum deflection: %.3f m at tip\n', max(abs(deflection_case1)));
 end
 
 function [deflection, moment] = calculateDeflectionCase(section_props, load_case, z, E, data)
@@ -1023,11 +908,10 @@ function [deflection, moment] = calculateDeflectionCase(section_props, load_case
 %   moment       - Bending moment at each height [N·m]
     
     n_points = length(z);
-    deflection = zeros(size(z));
     moment = zeros(size(z));
     
     % Calculate wind profile and distributed loading
-    [wind_profile, drag_force, nacelle_load] = computeWindLoading(section_props, load_case, z, data);
+    [~, drag_force, nacelle_load] = computeWindLoading(section_props, load_case, z, data);
     
     
     % Calculate moment distribution using proper beam theory
@@ -1149,7 +1033,7 @@ function [wind_profile, drag_force, nacelle_load] = computeWindLoading(section_p
     end
 end
 
-function stress_results = computeStressAnalysis(section_props, load_cases, deflection_results, E, data)
+function stress_results = computeStressAnalysis(section_props, load_cases, deflection_results, ~, data)
 % COMPUTESTRESSANALYSIS Calculate stress analysis at tower base
 % Performs stress analysis including bending, axial, and combined stresses
 % with fatigue analysis using Goodman diagram methodology.
@@ -1167,7 +1051,6 @@ function stress_results = computeStressAnalysis(section_props, load_cases, defle
     % Get base section properties
     base_I = section_props.I(1);
     base_c = section_props.c(1);
-    base_area = section_props.area(1);
     
     % Calculate stresses for both load cases
     stress_results = struct();
@@ -1181,14 +1064,12 @@ function stress_results = computeStressAnalysis(section_props, load_cases, defle
     sigma_bending_2 = moment_2 * base_c / base_I;
     
     % Apply directional factors based on wind direction
-    beta_1 = 0;  % Case 1 is reference (maximum) condition
     beta_2 = load_cases.case2.wind_direction - load_cases.case1.wind_direction;
     
-    sigma_max_1 = sigma_bending_1 * cosd(beta_1);  % = sigma_bending_1 (cos(0) = 1)
+    sigma_max_1 = sigma_bending_1;  % Case 1 is reference (maximum) condition
     sigma_max_2 = sigma_bending_2 * cosd(beta_2);
     
     % Mohrs Circle Analysis for maximum stresses
-    fprintf('\n--- Mohr''s Circle Analysis ---\n');
     
     % For uniaxial stress state (σ_y = 0, τ_xy = 0), Mohrs circle simplifies to:
     % σ₁ = σ_x, σ₂ = 0, τ_max = σ_x/2
@@ -1199,13 +1080,6 @@ function stress_results = computeStressAnalysis(section_props, load_cases, defle
     sigma_1_2 = sigma_max_2;  % Principal stress 1 = bending stress  
     sigma_2_2 = 0;            % Principal stress 2 = 0 (uniaxial)
     tau_max_2 = sigma_max_2 / 2;  % Maximum shear stress
-    
-    fprintf('Case 1 - Principal Stresses: σ₁ = %.1f MPa, σ₂ = %.1f MPa\n', ...
-        sigma_1_1/1e6, sigma_2_1/1e6);
-    fprintf('Case 1 - Max Shear Stress: τ_max = %.1f MPa\n', tau_max_1/1e6);
-    fprintf('Case 2 - Principal Stresses: σ₁ = %.1f MPa, σ₂ = %.1f MPa\n', ...
-        sigma_1_2/1e6, sigma_2_2/1e6);
-    fprintf('Case 2 - Max Shear Stress: τ_max = %.1f MPa\n', tau_max_2/1e6);
     
     % Store Mohrs circle results
     stress_results.mohr_case1 = struct('sigma_1', sigma_1_1, 'sigma_2', sigma_2_1, ...
@@ -1238,48 +1112,27 @@ function stress_results = computeStressAnalysis(section_props, load_cases, defle
     stress_results.fatigue_safety_factor = n_fatigue;
     
     % Static failure analysis using actual stress components (Case 1)
-    fprintf('\n--- Static Failure Analysis (Maximum Load Case) ---\n');
     
     S_y = data.materials.steel.yieldStrength;
     
     % Get actual stress components for Case 1
     sigma_x = sigma_max_1;  % Bending stress (principal stress)
-    sigma_y = 0;           % No stress in y-direction (uniaxial)
     tau_xy = 0;            % No shear stress (uniaxial)
     
     % 1. Maximum Normal Stress Theory (MNST)
     % Uses the maximum principal stress
     SF_MNST = S_y / sigma_x;
-    if SF_MNST >= 1.0
-        status_MNST = '(SAFE)';
-    else
-        status_MNST = '(FAIL)';
-    end
-    fprintf('MNST: σ₁ = %.1f MPa, SF = %.2f %s\n', sigma_x/1e6, SF_MNST, status_MNST);
     
     % 2. Maximum Shear Stress Theory (MSST) - Tresca
     % Uses maximum shear stress = σ₁/2 for uniaxial stress
     tau_max_actual = sigma_x / 2;
     S_sy = S_y / 2;  % Shear yield strength
     SF_MSST = S_sy / tau_max_actual;
-    if SF_MSST >= 1.0
-        status_MSST = '(SAFE)';
-    else
-        status_MSST = '(FAIL)';
-    end
-    fprintf('MSST: τ_max = %.1f MPa, S_sy = %.1f MPa, SF = %.2f %s\n', ...
-        tau_max_actual/1e6, S_sy/1e6, SF_MSST, status_MSST);
     
     % 3. Distortion Energy Theory (DET) - von Mises
     % Uses von Mises equivalent stress: σ_eq = √(σ_x² + 3τ_xy²)
     sigma_eq = sqrt(sigma_x^2 + 3*tau_xy^2);
     SF_DET = S_y / sigma_eq;
-    if SF_DET >= 1.0
-        status_DET = '(SAFE)';
-    else
-        status_DET = '(FAIL)';
-    end
-    fprintf('DET: σ_eq = %.1f MPa, SF = %.2f %s\n', sigma_eq/1e6, SF_DET, status_DET);
     
     % Store static failure results
     stress_results.static_failure = struct();
@@ -1289,14 +1142,9 @@ function stress_results = computeStressAnalysis(section_props, load_cases, defle
     stress_results.static_failure.tau_max = tau_max_actual;
     stress_results.static_failure.sigma_eq = sigma_eq;
     stress_results.static_failure.min_SF = min([SF_MNST, SF_MSST, SF_DET]);
-    
-    fprintf('\nBase stress - Case 1: %.1f MPa, Case 2: %.1f MPa\n', ...
-        sigma_max_1/1e6, sigma_max_2/1e6);
-    fprintf('Mean stress: %.1f MPa, Alternating stress: %.1f MPa\n', ...
-        stress_results.sigma_mean/1e6, stress_results.sigma_alt/1e6);
 end
 
-function createTowerDeflectionPlot(deflection_results, section_props, config)
+function createTowerDeflectionPlot(deflection_results, ~, config)
 % CREATETOWERDEFLECTIONPLOT Create tower deflection visualization
 % Generates plots showing tower deflection profiles for different load cases
 % with proper scaling and formatting.
@@ -1320,6 +1168,12 @@ function createTowerDeflectionPlot(deflection_results, section_props, config)
     title('Tower Deflection Profile');
     legend('Load Case 1 (Max)', 'Load Case 2 (Min)', 'Location', 'best');
     grid on;
+    
+    % Add max deflection label for load case 1
+    [max_deflection_case1, ~] = max(abs(deflection_results.case1.deflection));
+    text(50, 0.35, sprintf('Max Deflection: %.3f m', max_deflection_case1), ...
+        'FontSize', 10, 'FontWeight', 'bold', 'Color', config.color_primary, ...
+        'BackgroundColor', 'white', 'EdgeColor', config.color_primary);
     
     % Save plot if enabled
     if config.save_plots
@@ -1385,7 +1239,6 @@ function plotMohrCircle(sigma_x, sigma_y, tau_xy, title_str, config)
     % Principal stresses
     sigma_1 = sigma_center + R;
     sigma_2 = sigma_center - R;
-    tau_max = R;
     
     % Create circle
     theta = linspace(0, 2*pi, 100);
@@ -1413,14 +1266,12 @@ function plotMohrCircle(sigma_x, sigma_y, tau_xy, title_str, config)
     % Add padding to prevent lines from touching plot edges
     xlim_current = xlim;
     ylim_current = ylim;
-    x_padding = (xlim_current(2) - xlim_current(1)) * 0.1;
-    y_padding = (ylim_current(2) - ylim_current(1)) * 0.1;
-    xlim([xlim_current(1) - x_padding, xlim_current(2) + x_padding]);
-    ylim([ylim_current(1) - y_padding, ylim_current(2) + y_padding]);
+    xlim([xlim_current(1) - (xlim_current(2) - xlim_current(1)) * 0.1, xlim_current(2) + (xlim_current(2) - xlim_current(1)) * 0.1]);
+    ylim([ylim_current(1) - (ylim_current(2) - ylim_current(1)) * 0.1, ylim_current(2) + (ylim_current(2) - ylim_current(1)) * 0.1]);
     
 end
 
-function createGoodmanDiagram(stress_results, S_ut, S_y, data, config)
+function createGoodmanDiagram(stress_results, S_ut, S_y, ~, config)
 % CREATEGOODMANDIAGRAM Create Goodman diagram for fatigue analysis
 % Generates Goodman diagram showing fatigue safety factors, endurance limits,
 % and operating points for fatigue analysis of the tower structure.
@@ -1489,7 +1340,7 @@ function createGoodmanDiagram(stress_results, S_ut, S_y, data, config)
     
     % Add safety factor annotation
     n_fatigue = stress_results.fatigue_safety_factor;
-    text(0.1, 0.9, sprintf('Safety Factor: %.2f', n_fatigue), 'Units', 'normalized', ...
+    text(100, 125, sprintf('Safety Factor: %.2f', n_fatigue), ...
         'BackgroundColor', 'white', 'EdgeColor', 'black');
     
     % Save plot if enabled
@@ -1522,8 +1373,8 @@ function createTowerAnalysisPlots(deflection_results, load_cases, section_props,
     total_height = max(z);
     
     % Calculate distributed loads for both cases
-    [wind_profile_1, drag_force_1, nacelle_load_1] = computeWindLoading(section_props, load_cases.case1, z, data);
-    [wind_profile_2, drag_force_2, nacelle_load_2] = computeWindLoading(section_props, load_cases.case2, z, data);
+    [~, drag_force_1, nacelle_load_1] = computeWindLoading(section_props, load_cases.case1, z, data);
+    [~, drag_force_2, nacelle_load_2] = computeWindLoading(section_props, load_cases.case2, z, data);
     
     
     % Calculate shear forces from moment gradients
@@ -1790,20 +1641,23 @@ function airfoilData = extractAirfoilCoordinates(basePath)
             try
                 % Read the .dat file (skip header lines starting with %)
                 fid = fopen(filePath, 'r');
-                lines = {};
+                lines = cell(1000, 1);  % Preallocate with reasonable size
+                line_count = 0;
                 line = fgetl(fid);
                 while ischar(line)
                     if ~startsWith(strtrim(line), '%')
-                        lines{end+1} = line;
+                        line_count = line_count + 1;
+                        lines{line_count} = line;
                     end
                     line = fgetl(fid);
                 end
                 fclose(fid);
+                lines = lines(1:line_count);  % Trim to actual size
                 
                 % Parse the coordinate data
                 coords = zeros(length(lines), 2);
                 for j = 1:length(lines)
-                    coords(j, :) = str2num(lines{j});
+                    coords(j, :) = str2double(strsplit(lines{j}));
                 end
                 
                 % Store in structure
@@ -1956,14 +1810,14 @@ function turbineData = extractTurbineSpecifications()
     
 end
 
-function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, c, twist_rad, perf_data, lambda_r, V_wind, omega_rad, pitch_rad)
+function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, ~, twist_rad, perf_data, lambda_r, V_wind, omega_rad, pitch_rad)
 % SOLVEBEMSECTION Closed-form BEM analysis for airfoil sections
 % Calculates induction factors and sectional loads using Blade Element Momentum theory
 % without iteration for improved computational efficiency.
 %
 % Inputs:
 %   r           - radial position [m]
-%   c           - local chord [m]
+%   ~           - local chord [m] (unused in this implementation)
 %   twist_rad   - local geometric twist [rad]
 %   perf_data   - airfoil polar struct with fields .AoA, .CL, .CD
 %   lambda_r    - local tip-speed ratio (λ * r / R)
@@ -1990,9 +1844,9 @@ function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, c, twist_rad, 
     CD = interp1(perf_data.AoA, perf_data.CD, alpha_deg, 'linear', 'extrap');
 
     % Resolve to normal and tangential force coefficients
-    s = sin(phi); c = cos(phi);
-    Cn = CL * c + CD * s;
-    Ct = CL * s - CD * c;
+    s = sin(phi); cos_phi = cos(phi);
+    Cn = CL * cos_phi + CD * s;
+    Ct = CL * s - CD * cos_phi;
 
     % Relative velocity at the section
     V_rel = sqrt((V_wind*(1-a))^2 + (omega_rad*r*(1+a_prime))^2);
@@ -2121,25 +1975,29 @@ function createVisualization(r_stations, dCP, dCT, CP, CT, lambda, V_wind, omega
         subplot(2, 2, 1);
         area(r_stations, dCP, 'FaceColor', 'blue', 'FaceAlpha', 0.3, 'EdgeColor', 'blue', 'LineWidth', 2);
         xlabel('Radius [m]');
-        ylabel('Local C_P');
+        ylabel('Local C_P (per unit area)');
         title('Local Power Coefficient Distribution');
+        % Format y-axis to avoid scientific notation
+        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.4f'));
         grid on;
         
         subplot(2, 2, 2);
         area(r_stations, dCT, 'FaceColor', 'red', 'FaceAlpha', 0.3, 'EdgeColor', 'red', 'LineWidth', 2);
         xlabel('Radius [m]');
-        ylabel('Local C_T');
+        ylabel('Local C_T (per unit area)');
         title('Local Thrust Coefficient Distribution');
+        % Format y-axis to avoid scientific notation
+        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.4f'));
         grid on;
         
         subplot(2, 2, 3);
         yyaxis left;
         plot(r_stations, dCP, [config.color_primary '-'], 'LineWidth', 2);
-        ylabel('Local C_P');
+        ylabel('Local C_P (per unit area)');
         ylim_left = ylim;
         yyaxis right;
         plot(r_stations, dCT, [config.color_secondary '-'], 'LineWidth', 2);
-        ylabel('Local C_T');
+        ylabel('Local C_T (per unit area)');
         ylim_right = ylim;
         
         % Set both y-axes to the same range
@@ -2149,9 +2007,15 @@ function createVisualization(r_stations, dCP, dCT, CP, CT, lambda, V_wind, omega
         yyaxis right;
         ylim(ylim_combined);
         
+        % Format axes to avoid scientific notation
+        yyaxis left;
+        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.4f'));
+        yyaxis right;
+        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.4f'));
+        
         xlabel('Radius [m]');
         title('Local Coefficients vs Radius');
-        legend('C_P', 'C_T', 'Location', 'best');
+        legend('Local C_P', 'Local C_T', 'Location', 'northwest');
         grid on;
     else
         subplot(2, 2, 1);
@@ -2161,6 +2025,8 @@ function createVisualization(r_stations, dCP, dCT, CP, CT, lambda, V_wind, omega
         xlabel('Axial Induction Factor (a)');
         ylabel('Power Coefficient (C_P)');
         title('Theoretical C_P vs Axial Induction Factor');
+        % Format y-axis to avoid scientific notation
+        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.3f'));
         grid on;
         
         subplot(2, 2, 2);
@@ -2169,6 +2035,8 @@ function createVisualization(r_stations, dCP, dCT, CP, CT, lambda, V_wind, omega
         xlabel('Axial Induction Factor (a)');
         ylabel('Thrust Coefficient (C_T)');
         title('Theoretical C_T vs Axial Induction Factor');
+        % Format y-axis to avoid scientific notation
+        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.3f'));
         grid on;
         
         subplot(2, 2, 3);
@@ -2181,6 +2049,11 @@ function createVisualization(r_stations, dCP, dCT, CP, CT, lambda, V_wind, omega
         xlabel('Axial Induction Factor (a)');
         title('Theoretical Coefficients vs Axial Induction Factor');
         legend('C_P', 'C_T', 'Location', 'best');
+        % Format both y-axes to avoid scientific notation
+        yyaxis left;
+        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.3f'));
+        yyaxis right;
+        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.3f'));
         grid on;
     end
     
@@ -2239,13 +2112,29 @@ function createPitchOptimizationPlot(pitch_range, CP_values, CT_values, optimal_
     yyaxis right;
     ylim(ylim_combined);
     
+    % Find CT value at optimal pitch
+    [~, optimal_idx] = min(abs(pitch_range - optimal_pitch));
+    CT_at_optimal = CT_values(optimal_idx);
+    
     hold on;
-    plot(optimal_pitch, CP_max, 'go', 'MarkerSize', 10, 'LineWidth', 2, 'DisplayName', sprintf('Max C_P = %.4f at \\theta = %.1f°', CP_max, optimal_pitch));
+    % Add vertical line at optimal pitch
+    xline(optimal_pitch, 'k--', 'LineWidth', 2, 'DisplayName', sprintf('Optimal \\theta = %.1f°', optimal_pitch));
+    
+    % Plot optimal point
+    plot(optimal_pitch, CP_max, 'go', 'MarkerSize', 10, 'LineWidth', 2, 'DisplayName', sprintf('Max C_P = %.4f', CP_max));
+    
+    % Add text labels for Cp and Ct values at optimal pitch
+    yyaxis left;
+    text(optimal_pitch + 0.5, CP_max + 0.075, sprintf('C_P = %.4f', CP_max), 'FontSize', 10, 'FontWeight', 'bold', 'Color', 'blue', 'BackgroundColor', 'white');
+    
+    yyaxis right;
+    text(optimal_pitch + 0.5, CT_at_optimal + 0.075, sprintf('C_T = %.4f', CT_at_optimal), 'FontSize', 10, 'FontWeight', 'bold', 'Color', 'red', 'BackgroundColor', 'white');
+    
     hold off;
     
     xlabel('Pitch Angle (degrees)');
     title(sprintf('Wind Turbine Pitch Optimization (V = %.1f m/s, \\lambda = %.1f)', V_wind, lambda));
-    legend('C_P', 'C_T', 'Optimal C_P', 'Location', 'best');
+    legend('C_P', 'C_T', sprintf('Optimal \\theta = %.1f°', optimal_pitch), 'Optimal C_P', 'Location', 'best');
     grid on;
     
     % Save plot if enabled
