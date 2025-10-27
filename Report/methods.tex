@@ -1,0 +1,231 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{siunitx}
+
+\title{Wind Turbine Analysis Methods}
+\author{Project 2 - Wind Turbine Analysis}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+This document describes the mathematical methods used to analyze wind turbine performance and structural integrity. The analysis combines blade element momentum theory for aerodynamic calculations with structural beam theory for tower deflection and stress analysis, following a systematic approach from aerodynamic performance to structural safety assessment.
+
+\subsection{Assumptions}
+
+The following assumptions are made throughout the analysis:
+\begin{itemize}
+    \item Steady-state operating conditions with no transient effects
+    \item Uniaxial stress state for tower analysis (bending only, no axial stress)
+    \item No aerodynamic interference between individual blades
+    \item Power law wind profile for atmospheric boundary layer modeling
+    \item Linear elastic material behavior for structural components
+    \item Rigid nacelle region above tower top
+\end{itemize}
+
+\section{Wind Turbine Analysis Methodology}
+
+\subsection{Blade Element Momentum Theory}
+
+The blade element momentum (BEM) theory combines momentum theory with blade element theory to calculate aerodynamic forces on wind turbine blades. This approach divides the blade into discrete radial stations and analyzes each station independently.
+
+\subsubsection{Blade Geometry Extraction}
+
+Blade geometry is extracted from station data including radial position $r$, chord length $c$, geometric twist angle $\theta_{twist}$, and airfoil designation. 
+
+\subsubsection{Induction Factor Calculations}
+
+The BEM analysis uses simplified induction factor calculations for computational efficiency. The axial induction factor is fixed at the momentum theory optimum:
+
+\begin{equation}
+a = \frac{1}{3}
+\end{equation}
+
+The tangential induction factor is calculated using a closed-form approximation:
+
+\begin{equation}
+a' = -\frac{1}{2} + \frac{1}{2}\sqrt{1 + \frac{4}{\lambda_r^2}a(1-a)}
+\end{equation}
+
+where $\lambda_r = \lambda \cdot r/R$ is the local tip speed ratio.
+
+\subsubsection{Inflow Angle and Angle of Attack}
+
+The inflow angle $\phi$ is calculated from the velocity components:
+
+\begin{equation}
+\phi = \arctan\left(\frac{1-a}{(1+a')\lambda_r}\right)
+\end{equation}
+
+The angle of attack $\alpha$ is then determined by subtracting the geometric twist and pitch angles from the inflow angle:
+
+\begin{equation}
+\alpha = \phi - (\theta_{twist} + \theta_{pitch})
+\end{equation}
+
+\subsubsection{Airfoil Performance Data}
+
+Lift and drag coefficients are obtained from airfoil performance data (polar curves) through interpolation based on the calculated angle of attack. For circular sections (root region), the drag coefficient is constant and lift coefficient is zero, representing the behavior of a circular cylinder in cross-flow.
+
+\subsubsection{Force Coefficient Resolution}
+
+The lift and drag coefficients are resolved into normal and tangential force coefficients relative to the rotor plane:
+
+\begin{align}
+C_n &= C_L \cos\phi + C_D \sin\phi \\
+C_t &= C_L \sin\phi - C_D \cos\phi
+\end{align}
+
+where $C_L$ is the lift coefficient, $C_D$ is the drag coefficient, and $\phi$ is the inflow angle.
+
+\subsubsection{Relative Velocity Calculation}
+
+The relative velocity magnitude at each blade station is calculated from the velocity components:
+
+\begin{equation}
+V_{rel} = \sqrt{(V_{wind}(1-a))^2 + (\omega r(1+a'))^2}
+\end{equation}
+
+where $V_{wind}$ is the freestream wind speed and $\omega$ is the rotational speed.
+
+\subsubsection{Elemental Load Calculations}
+
+The elemental thrust, torque, and power contributions per unit length are:
+
+\begin{align}
+dT &= \frac{1}{2}\rho V_{rel}^2 c C_n \\
+dQ &= \frac{1}{2}\rho V_{rel}^2 c C_t r \\
+dP &= dQ \cdot \omega
+\end{align}
+
+where $\rho$ is air density.
+
+\subsubsection{Integration to Total Coefficients}
+
+The elemental loads are integrated across the blade span and multiplied by the number of blades $B$ to obtain total coefficients:
+
+\begin{align}
+C_P &= \frac{B \int dP}{\frac{1}{2}\rho A V_{wind}^3} \\
+C_T &= \frac{B \int dT}{\frac{1}{2}\rho A V_{wind}^2}
+\end{align}
+
+where $A$ is the rotor swept area.
+
+\subsection{Optimization Methods}
+
+\subsubsection{Single-Parameter Optimization}
+
+For pitch angle optimization, the analysis sweeps through pitch angles from minimum to maximum values at specified increments. For each pitch angle, the power coefficient is calculated using the BEM method. The maximum power coefficient is identified across all tested pitch angles, and the corresponding optimal pitch angle is recorded.
+
+\subsubsection{Two-Parameter Optimization}
+
+For simultaneous optimization of tip speed ratio and pitch angle, a grid search is performed over the two-dimensional parameter space. For each combination of parameters, the power coefficient is calculated using the BEM method. The global maximum power coefficient and corresponding optimal parameters are identified from the complete parameter space.
+
+\subsubsection{Rated Power Control}
+
+To determine the blade pitch angle required to limit turbine power to the rated value at high wind speeds, the analysis finds the worst-case power coefficient across the allowed tip speed ratio range for each pitch angle. The corresponding power is calculated using $P = C_P \cdot \frac{1}{2}\rho A V_{wind}^3$. The minimum pitch angle where the calculated power does not exceed the rated power is selected as the required pitch setting.
+
+\subsection{Structural Analysis}
+
+\subsubsection{Load Case Definition}
+
+Two loading scenarios are considered for structural analysis:
+\begin{itemize}
+    \item Case 1: Maximum loading with primary wind direction
+    \item Case 2: Maximum loading with secondary wind direction
+\end{itemize}
+
+Each case includes thrust force from BEM analysis and distributed wind drag along the tower height.
+
+\subsubsection{Thrust Force Calculation}
+
+The rotor thrust force is calculated using the BEM method for the specified operating conditions (wind speed, tip speed ratio, and pitch angle). This provides the load applied in the nacelle region, which is assumed to be stiff.
+
+\subsubsection{Tower Deflection Analysis}
+
+The tower is modeled as a cantilever beam with variable cross-section. The moment distribution is calculated by integrating distributed loads and thrust forces from each height to the tower tip. The deflection is obtained through double integration of the curvature:
+
+\begin{align}
+\kappa(z) &= \frac{M(z)}{EI(z)} \\
+\theta(z) &= \int_0^z \kappa(\xi) \, d\xi \\
+v(z) &= \int_0^z \theta(\xi) \, d\xi
+\end{align}
+
+where $\kappa$ is curvature, $M$ is bending moment, $E$ is Young's modulus, $I$ is moment of inertia, $\theta$ is slope, and $v$ is deflection.
+
+\subsubsection{Stress Analysis}
+
+The bending stress at the tower base is calculated using beam theory:
+
+\begin{equation}
+\sigma = \frac{Mc_{outer}}{I}
+\end{equation}
+
+where $c_{outer}$ is the outer diameter of the tower cross-section.
+
+For the uniaxial stress state (bending only), the principal stresses are:
+\begin{align}
+\sigma_1 &= \sigma_{bending} \\
+\sigma_2 &= 0 \\
+\tau_{max} &= \frac{\sigma_1}{2}
+\end{align}
+
+\subsubsection{Directional Loading Effects}
+
+An important distinction in the stress analysis is the application of directional factors based on wind direction differences between load cases. For Case 1 (reference maximum condition), the stress is calculated directly from bending. For Case 2 (secondary wind direction), the stress is modified by a directional factor:
+
+\begin{equation}
+\sigma_{max,2} = \sigma_{bending,2} \cos(\beta_2)
+\end{equation}
+
+where $\beta_2$ is the angular difference between the primary and secondary wind directions. This accounts for the reduced effective loading when wind approaches from non-optimal directions.
+
+\subsubsection{Static Failure Criteria}
+
+Three static failure theories are applied:
+
+\paragraph{Maximum Normal Stress Theory (MNST)}
+\begin{equation}
+SF_{MNST} = \frac{S_y}{\sigma_1}
+\end{equation}
+
+\paragraph{Maximum Shear Stress Theory (MSST/Tresca)}
+\begin{equation}
+SF_{MSST} = \frac{S_{sy}}{\tau_{max}} = \frac{S_y/2}{\sigma_1/2} = \frac{S_y}{\sigma_1}
+\end{equation}
+
+\paragraph{Distortion Energy Theory (DET/von Mises)}
+\begin{equation}
+\sigma_{eq} = \sqrt{\sigma_x^2 + 3\tau_{xy}^2}
+\end{equation}
+\begin{equation}
+SF_{DET} = \frac{S_y}{\sigma_{eq}}
+\end{equation}
+
+where $S_y$ is yield strength and $S_{sy}$ is shear yield strength.
+
+\subsubsection{Fatigue Analysis}
+
+The fatigue analysis uses the modified Goodman criterion with mean and alternating stresses:
+
+\begin{align}
+\sigma_m &= \frac{\sigma_{max} + \sigma_{min}}{2} \\
+\sigma_a &= \frac{|\sigma_{max} - \sigma_{min}|}{2}
+\end{align}
+
+The endurance limit is modified by various factors:
+
+\begin{equation}
+S_e = S'_e \cdot C_L \cdot C_G \cdot C_S
+\end{equation}
+
+where $S'_e = 0.5S_{ut}$ is the base endurance limit, $C_L = 1.0$ is the load factor, $C_G = 0.9$ is the gradient factor, and $C_S = 0.7$ is the surface factor.
+
+\end{document}
