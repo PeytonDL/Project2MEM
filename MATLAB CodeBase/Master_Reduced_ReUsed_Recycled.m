@@ -89,44 +89,31 @@ function config = createConfig()
 
     config = struct();
     
-    % ============================================================================
-    % DELIVERABLE EXECUTION CONTROL
-    % ============================================================================
-    % Set to true to run each deliverable, false to skip
-    % Dependencies: D5 requires D4 results for realistic operating conditions
-    config.run_deliverable_1 =      true;    % Basic BEM Analysis (CP, CT calculation)
-    config.run_deliverable_2 =      true;    % Pitch Optimization (optimal pitch finding)
-    config.run_deliverable_3 =      true;    % 2D CP Optimization (lambda & pitch optimization)
-    config.run_deliverable_4 =      true;    % Rated Power Pitch Control (pitch for 2.5 MW)
-    config.run_deliverable_5 =      true;    % Tower Structural Analysis (deflection & stress)
+    % Deliverable execution flags
+    config.run_deliverable_1 =      true;    % Basic BEM Analysis
+    config.run_deliverable_2 =      true;    % Pitch Optimization
+    config.run_deliverable_3 =      true;    % 2D CP Optimization
+    config.run_deliverable_4 =      true;    % Rated Power Pitch Control
+    config.run_deliverable_5 =      true;    % Tower Deflection Analysis
     
-    % ============================================================================
-    % VISUALIZATION CONTROL
-    % ============================================================================
-    % Enable/disable specific plot generation for each deliverable
-    % Set to true to generate plots, false to skip (saves computation time)
-    config.plot_d1_results =        true;    % D1: Side-by-side CP/CT distribution plots
-    config.plot_d2_optimization =   true;    % D2: CP/CT vs pitch angle optimization
-    config.plot_d3_optimization =   true;    % D3: 3D surface plot of CP optimization
-    config.plot_d4_power =          true;    % D4: Power vs pitch for rated power control
-    config.plot_d5_deflection =     true;    % D5: Tower deflection profile plots
-    config.plot_d5_mohr =           true;    % D5: Mohrs circle stress analysis
-    config.plot_d5_goodman =        true;    % D5: Goodman diagram fatigue analysis
-    config.plot_d5_tower =          true;    % D5: Comprehensive tower analysis plots
+    % Plot generation flags
+    config.plot_d1_results =        true;    % D1: BEM Analysis Results
+    config.plot_d2_optimization =   true;    % D2: Pitch Optimization Plot
+    config.plot_d3_optimization =   true;    % D3: 2D Optimization Plot
+    config.plot_d4_power =          true;    % D4: Power vs Pitch Plot
+    config.plot_d5_deflection =     true;    % D5: Tower Deflection Plot
+    config.plot_d5_mohr =           true;    % D5: Mohr Circle Plot
+    config.plot_d5_goodman =        true;    % D5: Goodman Diagram
+    config.plot_d5_tower =          true;    % D5: Tower Analysis Plots
     
-    % ============================================================================
-    % OUTPUT AND FILE MANAGEMENT
-    % ============================================================================
-    config.save_plots = true;          % Save all generated plots as PNG files
-    config.parameters_path = 'Auxilary Information/Given Parameters/'; % Path to input data files
+    % Output options
+    config.save_plots = false;          % Save plots to files
+    config.parameters_path = 'Auxilary Information/Given Parameters/'; %CHECK ON THIS Location
     
-    % ============================================================================
-    % VISUAL STYLING
-    % ============================================================================
-    % Consistent color scheme for all plots
-    config.color_primary = 'b';          % Primary color (blue) - main data series
-    config.color_secondary = 'r';        % Secondary color (red) - comparison data
-    config.color_accent = 'g';           % Accent color (green) - highlights/annotations
+    % Color scheme for consistent plotting
+    config.color_primary = 'b';          % Primary color (blue)
+    config.color_secondary = 'r';        % Secondary color (red)
+    config.color_accent = 'g';           % Accent color (green)
 end
 
 %% ============================================================================
@@ -161,29 +148,17 @@ function blade_stations = prepareBladeStations(data)
 %   blade_stations = prepareBladeStations(data);
 %   fprintf('Number of stations: %d\n', blade_stations.n_stations);
 
-    % ============================================================================
-    % BLADE GEOMETRY EXTRACTION AND PREPROCESSING
-    % ============================================================================
-    % Extract blade profile data from input structure
-    blade_profile = data.blade.profile;  % Complete blade profile table
-    hub_radius = data.turbine.performance.hubRadius;  % Hub radius [m] - filter boundary
+    blade_profile = data.blade.profile;  % Blade profile table
+    hub_radius = data.turbine.performance.hubRadius;  % Hub radius [m]
     
-    % ============================================================================
-    % HUB REGION FILTERING
-    % ============================================================================
-    % Filter out stations within hub radius (where BEM theory doesnt apply)
-    % Hub region has complex 3D flow and no meaningful aerodynamic analysis
-    use_idx = blade_profile.DistanceFromCenterOfRotation / 1000 >= hub_radius;  % Boolean filter
+    % Extract, convert units, and filter hub region
+    use_idx = blade_profile.DistanceFromCenterOfRotation / 1000 >= hub_radius;  % Filter hub region
     
-    % ============================================================================
-    % UNIT CONVERSION AND DATA ORGANIZATION
-    % ============================================================================
-    % Convert from mm to m and organize into structure for BEM analysis
     blade_stations.r_stations = blade_profile.DistanceFromCenterOfRotation(use_idx) / 1000;  % Radial positions [m]
     blade_stations.chord_m = blade_profile.ChordLength(use_idx) / 1000;  % Chord lengths [m]
     blade_stations.twist_deg_vec = blade_profile.BladeTwist(use_idx);  % Twist angles [deg]
-    blade_stations.airfoil_raw = blade_profile.Airfoil(use_idx);  % Airfoil names for each station
-    blade_stations.n_stations = sum(use_idx);  % Number of valid stations for analysis
+    blade_stations.airfoil_raw = blade_profile.Airfoil(use_idx);  % Airfoil names
+    blade_stations.n_stations = sum(use_idx);  % Number of stations
 end
 
 function [dT, dQ, dP] = calculateBEMAtStation(station_data, conditions, data)
@@ -220,24 +195,14 @@ function [dT, dQ, dP] = calculateBEMAtStation(station_data, conditions, data)
 % Example:
 %   [dT, dQ, dP] = calculateBEMAtStation(station_data, conditions, data);
 
-    % ============================================================================
-    % BLADE ELEMENT MOMENTUM (BEM) ANALYSIS
-    % ============================================================================
-    % Calculate aerodynamic coefficients using BEM theory
-    % Returns: Cn (normal force coefficient), Ct (tangential force coefficient), V_rel (relative velocity)
+    % Get section coefficients and calculate elemental loads
     [~, ~, ~, ~, Cn, Ct, V_rel] = getSectionCoefficients(...
         station_data.airfoil, station_data.twist_deg, station_data.r, station_data.c, ...
         conditions.lambda_r, conditions.V_wind, conditions.omega_rad, conditions.pitch_rad, ...
         data, data.materials.air.density, data.materials.air.viscosity);
     
-    % Calculate elemental loads using aerodynamic coefficients
-    % Thrust: dT = 0.5 * ρ * V_rel² * c * Cn
     dT = 0.5 * data.materials.air.density * V_rel^2 * station_data.c * Cn;  % Elemental thrust [N]
-    
-    % Torque: dQ = 0.5 * ρ * V_rel² * c * Ct * r
     dQ = 0.5 * data.materials.air.density * V_rel^2 * station_data.c * Ct * station_data.r;  % Elemental torque [N·m]
-    
-    % Power: dP = dQ * ω (torque times angular velocity)
     dP = dQ * conditions.omega_rad;  % Elemental power [W]
 end
 
@@ -272,20 +237,9 @@ function [CP, CT, P, T] = integrateBladeLoads(r_stations, dT, dQ, omega_rad, B, 
 % Example:
 %   [CP, CT, P, T] = integrateBladeLoads(r_stations, dT, dQ, omega, B, A, V_wind, rho);
 
-    % ============================================================================
-    % INTEGRATION OF BLADE LOADS TO TOTAL ROTOR PERFORMANCE
-    % ============================================================================
-    % Integrate elemental loads across all blade stations using trapezoidal integration
-    % Multiply by number of blades (B) to get total rotor loads
-    
-    T = B * trapz(r_stations, dT);  % Total thrust [N] - sum of all elemental thrust forces
-    P = B * trapz(r_stations, dQ * omega_rad);  % Total power [W] - sum of all elemental power contributions
-    
-    % Calculate dimensionless performance coefficients
-    % Power coefficient: CP = P / (0.5 * ρ * A * V³)
+    T = B * trapz(r_stations, dT);  % Total thrust [N]
+    P = B * trapz(r_stations, dQ * omega_rad);  % Total power [W]
     CP = P / (0.5 * rho * A * V_wind^3);  % Power coefficient
-    
-    % Thrust coefficient: CT = T / (0.5 * ρ * A * V²)
     CT = T / (0.5 * rho * A * V_wind^2);  % Thrust coefficient
 end
 
@@ -314,24 +268,18 @@ function runAllDeliverables()
 % Configuration is controlled by the createConfig() function.
 % Edit settings in createConfig() to control which deliverables and plots are executed.
 
-    % Get configuration settings (deliverable flags, plotting options, etc.)
+    % Get configuration
     config = createConfig();
     
-    % Extract all wind turbine data from parameter files once for efficiency
-    % This includes blade geometry, airfoil data, material properties, etc.
+    % Extract data once for all deliverables
     data = ParameterExtraction(config);
 
     
     fprintf('\n');
 
-    % Initialize results structure to store all deliverable outputs
     results = struct();
     
-    % ============================================================================
-    % DELIVERABLE 1: BASIC BEM ANALYSIS
-    % ============================================================================
-    % Calculates power coefficient (CP) and thrust coefficient (CT) using
-    % Blade Element Momentum theory for specified operating conditions
+    % Deliverable 1: Basic BEM Analysis
     if config.run_deliverable_1
         fprintf('Running Deliverable 1...\n');
         [CP1, CT1] = Deliverable1(config, data);
@@ -341,11 +289,7 @@ function runAllDeliverables()
         fprintf('Skipping Deliverable 1 (disabled)\n\n');
     end
     
-    % ============================================================================
-    % DELIVERABLE 2: PITCH OPTIMIZATION
-    % ============================================================================
-    % Finds optimal pitch angle for maximum power coefficient at fixed tip speed ratio
-    % Uses BEM analysis to evaluate performance across pitch angle range
+    % Deliverable 2: Pitch Optimization
     if config.run_deliverable_2
         fprintf('Running Deliverable 2...\n');
         [CP2, optimal_conditions] = Deliverable2(config, data);
@@ -355,12 +299,7 @@ function runAllDeliverables()
         fprintf('Skipping Deliverable 2 (disabled)\n\n');
     end
     
-    % ============================================================================
-    % DELIVERABLE 3: 2D CP OPTIMIZATION
-    % ============================================================================
-    % Performs 2D optimization over tip speed ratio and pitch angle
-    % Lambda range calculated from actual turbine speed limits (9.6-15.5 RPM)
-    % Finds global maximum power coefficient across both variables
+    % Deliverable 3: 2D Optimization
     if config.run_deliverable_3
         fprintf('Running Deliverable 3...\n');
         [CP3, optimal_conditions_3D] = Deliverable3(config, data);
@@ -370,12 +309,7 @@ function runAllDeliverables()
         fprintf('Skipping Deliverable 3 (disabled)\n\n');
     end
     
-    % ============================================================================
-    % DELIVERABLE 4: RATED POWER PITCH CONTROL
-    % ============================================================================
-    % Determines required pitch angle to achieve rated power at specified wind speed
-    % Uses optimization to find pitch that produces exactly 2.5 MW output
-    % Lambda range calculated from actual turbine speed limits
+    % Deliverable 4: Rated Power Pitch Control
     if config.run_deliverable_4
         fprintf('Running Deliverable 4...\n');
         result4 = Deliverable4(config, data);
@@ -387,15 +321,7 @@ function runAllDeliverables()
         result4 = struct('lambda', 5.0, 'pitch_deg', 0.0);
     end
     
-    % ============================================================================
-    % DELIVERABLE 5: TOWER STRUCTURAL ANALYSIS
-    % ============================================================================
-    % Comprehensive structural analysis including:
-    % - Tower deflection under wind loading
-    % - Stress analysis with Mohrs circle
-    % - Fatigue analysis using Goodman diagram
-    % - Safety factor calculations for both static and fatigue failure
-    % Uses results from D4 for realistic operating conditions
+    % Deliverable 5: Tower Analysis (using D4 results)
     if config.run_deliverable_5
         fprintf('Running Deliverable 5...\n');
         result5 = Deliverable5(config, data, result4.lambda, result4.pitch_deg);
@@ -1114,27 +1040,16 @@ function stress_results = computeStressAnalysis(section_props, load_cases, defle
 % Outputs:
 %   stress_results  - Structure containing stress analysis results
     
-    % ============================================================================
-    % STRESS CALCULATION AT TOWER BASE
-    % ============================================================================
-    % Extract geometric properties at tower base (most critical location)
-    base_moment_of_inertia = section_props.I(1);           % Second moment of area [m^4]
-    base_distance_to_outer_fiber = section_props.c(1);     % Distance to outer fiber [m]
+    % Extract base section properties and calculate stresses
+    base_moment_of_inertia = section_props.I(1);
+    base_distance_to_outer_fiber = section_props.c(1);
+    base_moment_case1 = deflection_results.case1.moment(1);
+    base_moment_case2 = deflection_results.case2.moment(1);
     
-    % Get bending moments at tower base from deflection analysis
-    base_moment_case1 = deflection_results.case1.moment(1);  % Maximum loading case [N·m]
-    base_moment_case2 = deflection_results.case2.moment(1);  % Minimum loading case [N·m]
-    
-    % Calculate bending stresses using beam theory: σ = My/I
     bending_stress_case1 = base_moment_case1 * base_distance_to_outer_fiber / base_moment_of_inertia;
     bending_stress_case2 = base_moment_case2 * base_distance_to_outer_fiber / base_moment_of_inertia;
     
-    % ============================================================================
-    % DIRECTIONAL STRESS ANALYSIS
-    % ============================================================================
-    % Account for wind direction differences between load cases
-    % Case 1: Reference direction (0° - maximum loading)
-    % Case 2: Different wind direction - stress reduced by cosine factor
+    % Apply directional factors and calculate maximum stresses
     wind_direction_angle_case1 = 0;  % Case 1 is reference (maximum) condition
     wind_direction_angle_case2 = load_cases.case2.wind_direction - load_cases.case1.wind_direction;
     maximum_stress_case1 = bending_stress_case1 * cosd(wind_direction_angle_case1);  % = bending_stress_case1 (cos(0) = 1)
@@ -1144,41 +1059,21 @@ function stress_results = computeStressAnalysis(section_props, load_cases, defle
     principal_stress_1_case1 = maximum_stress_case1; principal_stress_2_case1 = 0; max_shear_stress_case1 = maximum_stress_case1 / 2;
     principal_stress_1_case2 = maximum_stress_case2; principal_stress_2_case2 = 0; max_shear_stress_case2 = maximum_stress_case2 / 2;
     
-    % ============================================================================
-    % FATIGUE ANALYSIS USING GOODMAN DIAGRAM METHODOLOGY
-    % ============================================================================
-    % Calculate modified endurance limit using Marin factors
-    % S_n = S_e * k_a * k_b * k_c * k_d * k_e * k_f
-    % where: k_a = surface factor, k_b = size factor, k_c = reliability factor
+    % Fatigue analysis
     ultimate_tensile_strength = data.materials.steel.tensileStrength;
     modified_endurance_limit = data.materials.steel.enduranceLimitFactor * ultimate_tensile_strength * ...
           data.materials.steel.fatigueFactors.sizeFactor * ...
           data.materials.steel.fatigueFactors.surfaceFactor * ...
           data.materials.steel.fatigueFactors.reliabilityFactor;  % Modified endurance limit
+    mean_stress = (maximum_stress_case1 + maximum_stress_case2) / 2;
+    alternating_stress = abs(maximum_stress_case1 - maximum_stress_case2) / 2;
+    fatigue_safety_factor = 1 / (alternating_stress/modified_endurance_limit + mean_stress/ultimate_tensile_strength); %safety factor
     
-    % Calculate mean and alternating stress components for Goodman analysis
-    mean_stress = (maximum_stress_case1 + maximum_stress_case2) / 2;        % Average stress [Pa]
-    alternating_stress = abs(maximum_stress_case1 - maximum_stress_case2) / 2; % Stress amplitude [Pa]
-    
-    % Goodman fatigue safety factor: n = 1 / (σa/Se + σm/Sut)
-    % This accounts for both mean stress and alternating stress effects
-    fatigue_safety_factor = 1 / (alternating_stress/modified_endurance_limit + mean_stress/ultimate_tensile_strength);
-    
-    % ============================================================================
-    % STATIC FAILURE ANALYSIS USING MULTIPLE FAILURE THEORIES
-    % ============================================================================
-    % Analyze static failure using Case 1 (maximum loading) conditions
+    % Static failure analysis (Case 1)
     yield_strength = data.materials.steel.yieldStrength;
-    normal_stress = maximum_stress_case1;  % Maximum normal stress [Pa]
-    shear_stress = 0;                      % No shear stress in this analysis [Pa]
-    
-    % Maximum Normal Stress Theory (Rankine): n = Sy/σ
+    normal_stress = maximum_stress_case1; shear_stress = 0;
     safety_factor_maximum_normal_stress_theory = yield_strength / normal_stress;
-    
-    % Maximum Shear Stress Theory (Tresca): n = (Sy/2)/(σ/2) = Sy/σ
     safety_factor_maximum_shear_stress_theory = (yield_strength / 2) / (normal_stress / 2);
-    
-    % Distortion Energy Theory (von Mises): n = Sy/σeq where σeq = sqrt(σ² + 3τ²)
     safety_factor_distortion_energy_theory = yield_strength / sqrt(normal_stress^2 + 3*shear_stress^2);
     
     % Compile results
@@ -1547,43 +1442,29 @@ function data = ParameterExtraction(config)
 %   data = ParameterExtraction(config);
 %   fprintf('Turbine: %s\n', data.turbine.model);
 
-    % ============================================================================
-    % DATA EXTRACTION SETUP
-    % ============================================================================
     basePath = config.parameters_path;  % Base path to parameters folder
     data = struct();  % Initialize main data structure
     
     try
-        % ============================================================================
-        % PRIMARY DATA EXTRACTION
-        % ============================================================================
-        % Extract all major data components from their respective files
-        data.blade = extractBladeProfile(fullfile(basePath, 'BladeProfile.csv'));  % Blade geometry and airfoil assignments
-        data.tower = extractTowerSpecs(fullfile(basePath, 'towerSpecs.csv'));       % Tower structural specifications
-        data.airfoils = extractAirfoilCoordinates(basePath);                        % Airfoil coordinate data (.dat files)
-        data.airfoilPerformance = extractAirfoilPerformance(basePath);             % Airfoil performance data (.csv files)
-        data.materials = extractMaterialProperties();                               % Material properties (air, steel)
-        data.turbine = extractTurbineSpecifications();                             % Wind turbine specifications (Clipper Liberty C96)
+        % Extract all data components
+        data.blade = extractBladeProfile(fullfile(basePath, 'BladeProfile.csv'));  % Blade geometry
+        data.tower = extractTowerSpecs(fullfile(basePath, 'towerSpecs.csv'));       % Tower specs
+        data.airfoils = extractAirfoilCoordinates(basePath);                        % Airfoil coordinates
+        data.airfoilPerformance = extractAirfoilPerformance(basePath);             % Airfoil performance
+        data.materials = extractMaterialProperties();                               % Material properties
+        data.turbine = extractTurbineSpecifications();                             % Turbine specifications
 
-        % ============================================================================
-        % DELIVERABLE-SPECIFIC PARAMETERS
-        % ============================================================================
-        % Predefined operating conditions for each deliverable
-        % These match the requirements specified in the project documentation
+        % Add predefined parameters for deliverables
         data.deliverables = struct('part1', struct('V_wind', 10, 'omega_rpm', 14, 'pitch_deg', 0), ...
             'part2', struct('V_wind', 8, 'lambda', 6.91), ...
             'part3', struct('V_wind', 6), ...
             'part4', struct('V_wind', 14.6));
         
-        % ============================================================================
-        % METADATA AND DOCUMENTATION
-        % ============================================================================
-        % Add extraction metadata for traceability and documentation
+        % Add metadata
         data.metadata = struct('extractionDate', datetime('now'), 'sourceFolder', basePath, ...
             'description', 'Wind turbine parameters extracted from Given Parameters folder');
         
     catch ME
-        % Error handling for file reading failures
         error('Parameter extraction failed: %s', ME.message);
     end
 end
@@ -1770,49 +1651,17 @@ function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, ~, twist_rad, 
 % Example:
 %   [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, c, twist, perf_data, lambda_r, V_wind, omega, pitch);
 
-    % ============================================================================
-    % CLOSED-FORM BEM ANALYSIS (NON-ITERATIVE)
-    % ============================================================================
-    % Use momentum-limit assumption for computational efficiency
-    % This avoids iterative solution while maintaining reasonable accuracy
-    a = 1/3;  % Assumed momentum-limit axial induction factor (maximum theoretical value)
-    
-    % Calculate tangential induction factor from momentum theory
-    % Derived from: a_prime = -0.5 + 0.5 * sqrt(1 + (4/λr²) * a * (1-a))
+    a = 1/3;  % Assumed momentum-limit axial induction factor
     a_prime = -0.5 + 0.5 * sqrt(1 + (4/(lambda_r^2)) * a * (1 - a));  % Tangential induction factor
-    
-    % ============================================================================
-    % AERODYNAMIC ANGLE CALCULATIONS
-    % ============================================================================
-    % Calculate inflow angle from velocity triangle
     phi = atan((1 - a) / ((1 + a_prime) * lambda_r));  % Inflow angle [rad]
-    
-    % Calculate angle of attack: α = φ - (θ + β)
-    % where θ = geometric twist, β = pitch angle
     alpha_deg = rad2deg(phi - (twist_rad + pitch_rad));  % Angle of attack [deg]
     
-    % ============================================================================
-    % AIRFOIL PERFORMANCE INTERPOLATION
-    % ============================================================================
-    % Interpolate airfoil performance data at calculated angle of attack
-    % Uses linear interpolation with extrapolation for angles outside data range
     CL = interp1(perf_data.AoA, perf_data.CL, alpha_deg, 'linear', 'extrap');  % Lift coefficient
     CD = interp1(perf_data.AoA, perf_data.CD, alpha_deg, 'linear', 'extrap');  % Drag coefficient
     
-    % ============================================================================
-    % FORCE COEFFICIENT TRANSFORMATION
-    % ============================================================================
-    % Transform lift/drag coefficients to normal/tangential force coefficients
-    % using inflow angle transformation
-    s = sin(phi); cos_phi = cos(phi);  % Trigonometric functions for efficiency
-    Cn = CL * cos_phi + CD * s;        % Normal force coefficient (thrust direction)
-    Ct = CL * s - CD * cos_phi;        % Tangential force coefficient (torque direction)
-    
-    % ============================================================================
-    % RELATIVE VELOCITY CALCULATION
-    % ============================================================================
-    % Calculate relative velocity magnitude from velocity triangle
-    % V_rel = sqrt(V_axial² + V_tangential²)
+    s = sin(phi); cos_phi = cos(phi);  % Trigonometric functions
+    Cn = CL * cos_phi + CD * s;        % Normal force coefficient
+    Ct = CL * s - CD * cos_phi;        % Tangential force coefficient
     V_rel = sqrt((V_wind*(1-a))^2 + (omega_rad*r*(1+a_prime))^2);  % Relative velocity [m/s]
 end
 
@@ -1847,34 +1696,18 @@ function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, lambda_r
 % Example:
 %   [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, lambda_r, V_wind, omega, rho, mu);
     
-    % ============================================================================
-    % CIRCULAR SECTION BEM ANALYSIS
-    % ============================================================================
-    % Use same momentum-limit assumption as airfoil sections for consistency
     a = 1/3;  % Assumed momentum-limit axial induction factor
     a_prime = -0.5 + 0.5 * sqrt(1 + (4/(lambda_r^2)) * a * (1 - a));  % Tangential induction factor
-    
-    % Calculate inflow angle (same as airfoil sections)
     phi = atan((1 - a) / ((1 + a_prime) * lambda_r));  % Inflow angle [rad]
     
-    % ============================================================================
-    % CIRCULAR SECTION AERODYNAMICS
-    % ============================================================================
-    % Calculate relative velocity and Reynolds number for drag coefficient
     V_rel = sqrt((V_wind*(1-a))^2 + (omega_rad*r*(1+a_prime))^2);  % Relative velocity [m/s]
-    Re = max(1, rho * V_rel * c / mu);  % Reynolds number (minimum 1 to avoid division by zero)
+    Re = max(1, rho * V_rel * c / mu);  % Reynolds number
+    CD = cylinderCDlocal(Re);  % Drag coefficient
+    CL = 0;  % Zero lift coefficient for circular sections
     
-    % Circular sections have zero lift and Reynolds-dependent drag
-    CD = cylinderCDlocal(Re);  % Drag coefficient from empirical correlation
-    CL = 0;  % Zero lift coefficient for circular sections (no camber)
-    
-    % ============================================================================
-    % FORCE COEFFICIENT CALCULATION
-    % ============================================================================
-    % Transform to normal/tangential force coefficients (same as airfoil sections)
     s = sin(phi); cphi = cos(phi);  % Trigonometric functions
-    Cn = CL * cphi + CD * s;        % Normal force coefficient (primarily drag)
-    Ct = CL * s - CD * cphi;        % Tangential force coefficient (primarily drag)
+    Cn = CL * cphi + CD * s;        % Normal force coefficient
+    Ct = CL * s - CD * cphi;        % Tangential force coefficient
 end
 
 function C_D = cylinderCDlocal(Re)
@@ -1901,34 +1734,11 @@ function C_D = cylinderCDlocal(Re)
 %   CD = cylinderCDlocal(Re);
 %   fprintf('Drag coefficient: %.3f\n', CD);
 
-    % ============================================================================
-    % REYNOLDS NUMBER-BASED DRAG COEFFICIENT CORRELATIONS
-    % ============================================================================
-    % Use different empirical correlations for different Reynolds number ranges
-    % to capture transition effects and flow regime changes
-    
     if Re < 2e5
-        % ============================================================================
-        % LOW REYNOLDS NUMBER REGIME (Re < 2×10⁵)
-        % ============================================================================
-        % Laminar flow with boundary layer effects
-        % Correlation accounts for viscous effects and boundary layer development
         C_D = 11 * Re.^(-0.75) + 0.9 * (1.0 - exp(-1000./Re)) + 1.2 * (1.0 - exp(-(Re./4500).^0.7));  % Low Re correlation
-        
     elseif Re <= 5e5
-        % ============================================================================
-        % TRANSITION REGIME (2×10⁵ ≤ Re ≤ 5×10⁵)
-        % ============================================================================
-        % Critical Reynolds number region where boundary layer transitions from laminar to turbulent
-        % Drag coefficient drops significantly due to turbulent boundary layer
         C_D = 10.^(0.32*tanh(44.4504 - 8 * log10(Re)) - 0.238793158);  % Transition region
-        
     else
-        % ============================================================================
-        % HIGH REYNOLDS NUMBER REGIME (Re > 5×10⁵)
-        % ============================================================================
-        % Fully turbulent flow with logarithmic dependence on Reynolds number
-        % Represents the "supercritical" regime for circular cylinders
         C_D = 0.1 * log10(Re) - 0.2533429;  % High Re correlation
     end
 end
@@ -2150,7 +1960,7 @@ function create3DOptimizationPlot(lambda_range, pitch_range, CP_matrix, optimal_
     xlabel('Pitch Angle (degrees)');
     ylabel('Tip Speed Ratio (\lambda)');
     zlabel('Power Coefficient (C_P)');
-    title(sprintf('Wind Turbine 3D Performance Optimization (V = %.1f m/s)', V_wind)); %'
+    title(sprintf('Wind Turbine 3D Performance Optimization (V = %.1f m/s)', V_wind));
     shading interp;
     colorbar;
     
@@ -2206,45 +2016,6 @@ function createPowerPitchPlot(pitch_range, P_pitch, pitch_req, P_req, ratedPower
         fprintf('Power vs Pitch plot saved as Deliverable4_Power_vs_Pitch.png\n');
     end
 end
-
-% ============================================================================
-% CODE SUMMARY AND CAPABILITIES
-% ============================================================================
-%
-% This comprehensive wind turbine analysis code provides the following capabilities:
-%
-% AERODYNAMIC ANALYSIS:
-% - Blade Element Momentum (BEM) theory implementation
-% - Airfoil performance interpolation and analysis
-% - Power and thrust coefficient calculations
-% - 2D optimization over tip speed ratio and pitch angle
-% - Rated power control analysis
-%
-% STRUCTURAL ANALYSIS:
-% - Tower deflection analysis under wind loading
-% - Stress analysis using beam theory
-% - Mohrs circle stress state visualization
-% - Fatigue analysis using Goodman diagram methodology
-% - Multiple static failure theories (Rankine, Tresca, von Mises)
-% - Safety factor calculations for both static and fatigue failure
-%
-% KEY FEATURES:
-% - Parameterized design (no hardcoded values)
-% - Realistic turbine specifications (Clipper Liberty C96)
-% - Dynamic lambda range calculation from actual speed limits
-% - Comprehensive visualization suite
-% - Modular design for easy modification and extension
-%
-% DELIVERABLES:
-% D1: Basic BEM Analysis - CP and CT calculation
-% D2: Pitch Optimization - Optimal pitch angle finding
-% D3: 2D CP Optimization - Global maximum power coefficient
-% D4: Rated Power Control - Pitch for rated power output
-% D5: Structural Analysis - Tower deflection and stress analysis
-%
-% The code uses actual wind turbine specifications and material properties
-% to provide realistic analysis results suitable for engineering applications.
-% ============================================================================
 
 
 
