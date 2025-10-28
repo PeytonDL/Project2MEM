@@ -50,10 +50,10 @@ function config = createConfig()
     config.run_deliverable_5 = true;    % Tower Deflection Analysis
     
     % Plot generation flags
-    config.plot_d1_results = true;      % D1: BEM Analysis Results
-    config.plot_d2_optimization = true; % D2: Pitch Optimization Plot
-    config.plot_d3_optimization = true; % D3: 2D Optimization Plot
-    config.plot_d4_power = true;       % D4: Power vs Pitch Plot
+    config.plot_d1_results = false;      % D1: BEM Analysis Results
+    config.plot_d2_optimization = false; % D2: Pitch Optimization Plot
+    config.plot_d3_optimization = false; % D3: 2D Optimization Plot
+    config.plot_d4_power = false;       % D4: Power vs Pitch Plot
     config.plot_d5_deflection = true;   % D5: Tower Deflection Plot
     config.plot_d5_mohr = true;         % D5: Mohr Circle Plot
     config.plot_d5_goodman = true;       % D5: Goodman Diagram

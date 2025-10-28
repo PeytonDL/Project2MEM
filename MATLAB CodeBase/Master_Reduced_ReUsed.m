@@ -108,7 +108,7 @@ function config = createConfig()
     
     % Output options
     config.save_plots = false;          % Save plots to files
-    config.parameters_path = '/Users/peytonlettau/Documents/GitHub/Project2MEM/Auxilary Information/Given Parameters/';
+    config.parameters_path = 'Auxilary Information/Given Parameters/'; %CHECK ON THIS Location
     
     % Color scheme for consistent plotting
     config.color_primary = 'b';          % Primary color (blue)
@@ -716,7 +716,7 @@ function result = Deliverable5(config, data, lambda, pitch_deg)
 % Output Arguments:
 %   result - Structure containing comprehensive analysis results
 %     .deflection        - Tower deflection analysis results
-%     .stress           - Stress analysis results (Mohr's circle, fatigue)
+%     .stress           - Stress analysis results (Mohrs circle, fatigue)
 %     .thrust_force     - Rotor thrust force [N]
 %     .tower_height     - Tower height [m]
 %     .hub_height       - Hub height [m]
@@ -727,7 +727,7 @@ function result = Deliverable5(config, data, lambda, pitch_deg)
 %   - Distributed wind loading using atmospheric boundary layer
 %   - Rotor thrust forces from BEM analysis
 %   - Beam deflection using numerical integration
-%   - Stress analysis with Mohr's circle theory
+%   - Stress analysis with Mohrs circle theory
 %   - Fatigue analysis using Goodman diagram
 %
 % Example:
@@ -737,7 +737,7 @@ function result = Deliverable5(config, data, lambda, pitch_deg)
     % Extract parameters
     V_wind = data.deliverables.part4.V_wind;  % Wind speed [m/s]
     tower_specs = data.tower.specs;           % Tower specifications
-    E = data.materials.steel.youngsModulus;   % Young's modulus [Pa]
+    E = data.materials.steel.youngsModulus;   % Youngs modulus [Pa]
     S_ut = data.materials.steel.tensileStrength;  % Ultimate tensile strength [Pa]
     S_y = data.materials.steel.yieldStrength;      % Yield strength [Pa]
     
@@ -1036,10 +1036,10 @@ function stress_results = computeStressAnalysis(section_props, load_cases, defle
     
     % Fatigue analysis
     S_ut = data.materials.steel.tensileStrength;
-    S_n = 0.5 * S_ut * 1.0 * 0.9 * 0.7;  % Modified endurance limit
+    S_n = 0.5 * S_ut * 1.0 * 0.9 * 0.7;  % Modified endurance limit % hardcoded value
     sigma_mean = (sigma_max_1 + sigma_max_2) / 2;
     sigma_alt = abs(sigma_max_1 - sigma_max_2) / 2;
-    n_fatigue = 1 / (sigma_alt/S_n + sigma_mean/S_ut);
+    n_fatigue = 1 / (sigma_alt/S_n + sigma_mean/S_ut); %safety factor
     
     % Static failure analysis (Case 1)
     S_y = data.materials.steel.yieldStrength;
