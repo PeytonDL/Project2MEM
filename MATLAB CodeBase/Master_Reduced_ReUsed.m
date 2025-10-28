@@ -61,8 +61,7 @@ function rpm = rad2rpm(rad)
     rpm = rad * 60 / (2 * pi);  % Convert rad/s to RPM
 end
 
-
-function config = createConfig()
+function config = createConfig() % USED FOR CHOOSING OUTPUT PLOTS 
 % CREATECONFIG Create configuration structure
 % Returns configuration structure with all analysis settings, plotting options,
 % and visual formatting parameters for wind turbine analysis.
@@ -117,7 +116,7 @@ function config = createConfig()
     % ============================================================================
     % OUTPUT AND FILE MANAGEMENT
     % ============================================================================
-    config.save_plots = true;          % Save all generated plots as PNG files
+    config.save_plots = false;          % Save all generated plots as PNG files
     config.parameters_path = 'Auxilary Information/Given Parameters/'; % Path to input data files
     
     % ============================================================================
@@ -287,6 +286,250 @@ function [CP, CT, P, T] = integrateBladeLoads(r_stations, dT, dQ, omega_rad, B, 
     
     % Thrust coefficient: CT = T / (0.5 * ρ * A * V²)
     CT = T / (0.5 * rho * A * V_wind^2);  % Thrust coefficient
+end
+
+function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, ~, twist_rad, perf_data, lambda_r, V_wind, omega_rad, pitch_rad)
+% SOLVEBEMSECTION Closed-form BEM analysis for airfoil sections
+% Calculates induction factors and sectional loads using Blade Element Momentum theory
+% without iteration for improved computational efficiency.
+%
+% Syntax:
+%   [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, ~, twist_rad, perf_data, lambda_r, V_wind, omega_rad, pitch_rad)
+%
+% Input Arguments:
+%   r           - Radial position [m]
+%   ~           - Local chord [m] (unused in this implementation)
+%   twist_rad   - Local geometric twist [rad]
+%   perf_data   - Airfoil polar struct with fields .AoA, .CL, .CD
+%   lambda_r    - Local tip-speed ratio (λ * r / R)
+%   V_wind      - Freestream wind speed [m/s]
+%   omega_rad   - Rotor speed [rad/s]
+%   pitch_rad   - Blade pitch angle [rad]
+%
+% Output Arguments:
+%   a, a_prime  - Axial and tangential induction factors
+%   CL, CD      - Section lift and drag coefficients at computed α
+%   Cn, Ct      - Normal and tangential force coefficients
+%   V_rel       - Relative velocity magnitude at section [m/s]
+%
+% Description:
+%   Performs closed-form BEM analysis assuming momentum-limit induction
+%   (a = 1/3) and calculates corresponding tangential induction factor.
+%   Interpolates airfoil performance data to find lift and drag coefficients.
+%
+% Example:
+%   [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, c, twist, perf_data, lambda_r, V_wind, omega, pitch);
+
+    % ============================================================================
+    % CLOSED-FORM BEM ANALYSIS (NON-ITERATIVE)
+    % ============================================================================
+    % Use momentum-limit assumption for computational efficiency
+    % This avoids iterative solution while maintaining reasonable accuracy
+    a = 1/3;  % Assumed momentum-limit axial induction factor (maximum theoretical value)
+    
+    % Calculate tangential induction factor from momentum theory
+    % Derived from: a_prime = -0.5 + 0.5 * sqrt(1 + (4/λr²) * a * (1-a))
+    a_prime = -0.5 + 0.5 * sqrt(1 + (4/(lambda_r^2)) * a * (1 - a));  % Tangential induction factor
+    
+    % ============================================================================
+    % AERODYNAMIC ANGLE CALCULATIONS
+    % ============================================================================
+    % Calculate inflow angle from velocity triangle
+    phi = atan((1 - a) / ((1 + a_prime) * lambda_r));  % Inflow angle [rad]
+    
+    % Calculate angle of attack: α = φ - (θ + β)
+    % where θ = geometric twist, β = pitch angle
+    alpha_deg = rad2deg(phi - (twist_rad + pitch_rad));  % Angle of attack [deg]
+    
+    % ============================================================================
+    % AIRFOIL PERFORMANCE INTERPOLATION
+    % ============================================================================
+    % Interpolate airfoil performance data at calculated angle of attack
+    % Uses linear interpolation with extrapolation for angles outside data range
+    CL = interp1(perf_data.AoA, perf_data.CL, alpha_deg, 'linear', 'extrap');  % Lift coefficient
+    CD = interp1(perf_data.AoA, perf_data.CD, alpha_deg, 'linear', 'extrap');  % Drag coefficient
+    
+    % ============================================================================
+    % FORCE COEFFICIENT TRANSFORMATION
+    % ============================================================================
+    % Transform lift/drag coefficients to normal/tangential force coefficients
+    % using inflow angle transformation
+    s = sin(phi); cos_phi = cos(phi);  % Trigonometric functions for efficiency
+    Cn = CL * cos_phi + CD * s;        % Normal force coefficient (thrust direction)
+    Ct = CL * s - CD * cos_phi;        % Tangential force coefficient (torque direction)
+    
+    % ============================================================================
+    % RELATIVE VELOCITY CALCULATION
+    % ============================================================================
+    % Calculate relative velocity magnitude from velocity triangle
+    % V_rel = sqrt(V_axial² + V_tangential²)
+    V_rel = sqrt((V_wind*(1-a))^2 + (omega_rad*r*(1+a_prime))^2);  % Relative velocity [m/s]
+end
+
+function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, lambda_r, V_wind, omega_rad, rho, mu)
+% SOLVECIRCLESECTION BEM analysis for circular sections
+% Calculates induction factors and loads for circular (non-lifting) sections
+% with zero lift coefficient and Reynolds-dependent drag coefficient.
+%
+% Syntax:
+%   [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, lambda_r, V_wind, omega_rad, rho, mu)
+%
+% Input Arguments:
+%   r           - Radial position [m]
+%   c           - Local chord (diameter) [m]
+%   lambda_r    - Local tip-speed ratio (λ * r / R)
+%   V_wind      - Freestream wind speed [m/s]
+%   omega_rad   - Rotor speed [rad/s]
+%   rho         - Air density [kg/m³]
+%   mu          - Air dynamic viscosity [Pa·s]
+%
+% Output Arguments:
+%   a, a_prime  - Axial and tangential induction factors
+%   CL, CD      - Lift and drag coefficients
+%   Cn, Ct      - Normal and tangential force coefficients
+%   V_rel       - Relative velocity [m/s]
+%
+% Description:
+%   Performs BEM analysis for circular sections (e.g., tower sections)
+%   assuming zero lift coefficient and Reynolds-dependent drag coefficient.
+%   Uses empirical drag coefficient correlations for circular cylinders.
+%
+% Example:
+%   [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, lambda_r, V_wind, omega, rho, mu);
+    
+    % ============================================================================
+    % CIRCULAR SECTION BEM ANALYSIS
+    % ============================================================================
+    % Use same momentum-limit assumption as airfoil sections for consistency
+    a = 1/3;  % Assumed momentum-limit axial induction factor
+    a_prime = -0.5 + 0.5 * sqrt(1 + (4/(lambda_r^2)) * a * (1 - a));  % Tangential induction factor
+    
+    % Calculate inflow angle (same as airfoil sections)
+    phi = atan((1 - a) / ((1 + a_prime) * lambda_r));  % Inflow angle [rad]
+    
+    % ============================================================================
+    % CIRCULAR SECTION AERODYNAMICS
+    % ============================================================================
+    % Calculate relative velocity and Reynolds number for drag coefficient
+    V_rel = sqrt((V_wind*(1-a))^2 + (omega_rad*r*(1+a_prime))^2);  % Relative velocity [m/s]
+    Re = max(1, rho * V_rel * c / mu);  % Reynolds number (minimum 1 to avoid division by zero)
+    
+    % Circular sections have zero lift and Reynolds-dependent drag
+    CD = cylinderCDlocal(Re);  % Drag coefficient from empirical correlation
+    CL = 0;  % Zero lift coefficient for circular sections (no camber)
+    
+    % ============================================================================
+    % FORCE COEFFICIENT CALCULATION
+    % ============================================================================
+    % Transform to normal/tangential force coefficients (same as airfoil sections)
+    s = sin(phi); cphi = cos(phi);  % Trigonometric functions
+    Cn = CL * cphi + CD * s;        % Normal force coefficient (primarily drag)
+    Ct = CL * s - CD * cphi;        % Tangential force coefficient (primarily drag)
+end
+
+function C_D = cylinderCDlocal(Re)
+% CYLINDERCDLOCAL Drag coefficient for circular cylinders
+% Calculates drag coefficient for smooth circular cylinders in cross-flow
+% using empirical correlations based on Reynolds number.
+%
+% Syntax:
+%   C_D = cylinderCDlocal(Re)
+%
+% Input Arguments:
+%   Re - Reynolds number based on cylinder diameter
+%
+% Output Arguments:
+%   C_D - Drag coefficient
+%
+% Description:
+%   Uses empirical correlations to calculate drag coefficient for circular
+%   cylinders in cross-flow. Different correlations are used for different
+%   Reynolds number ranges to capture transition effects.
+%
+% Example:
+%   Re = 1e5;
+%   CD = cylinderCDlocal(Re);
+%   fprintf('Drag coefficient: %.3f\n', CD);
+
+    % ============================================================================
+    % REYNOLDS NUMBER-BASED DRAG COEFFICIENT CORRELATIONS
+    % ============================================================================
+    % Use different empirical correlations for different Reynolds number ranges
+    % to capture transition effects and flow regime changes
+    
+    if Re < 2e5
+        % ============================================================================
+        % LOW REYNOLDS NUMBER REGIME (Re < 2×10⁵)
+        % ============================================================================
+        % Laminar flow with boundary layer effects
+        % Correlation accounts for viscous effects and boundary layer development
+        C_D = 11 * Re.^(-0.75) + 0.9 * (1.0 - exp(-1000./Re)) + 1.2 * (1.0 - exp(-(Re./4500).^0.7));  % Low Re correlation
+        
+    elseif Re <= 5e5
+        % ============================================================================
+        % TRANSITION REGIME (2×10⁵ ≤ Re ≤ 5×10⁵)
+        % ============================================================================
+        % Critical Reynolds number region where boundary layer transitions from laminar to turbulent
+        % Drag coefficient drops significantly due to turbulent boundary layer
+        C_D = 10.^(0.32*tanh(44.4504 - 8 * log10(Re)) - 0.238793158);  % Transition region
+        
+    else
+        % ============================================================================
+        % HIGH REYNOLDS NUMBER REGIME (Re > 5×10⁵)
+        % ============================================================================
+        % Fully turbulent flow with logarithmic dependence on Reynolds number
+        % Represents the "supercritical" regime for circular cylinders
+        C_D = 0.1 * log10(Re) - 0.2533429;  % High Re correlation
+    end
+end
+
+function [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, twist_deg, r, c, lambda_r, V_wind, omega_rad, pitch_rad, data, rho, mu, varargin)
+% GETSECTIONCOEFFICIENTS Unified section coefficient calculation
+% Calculates BEM coefficients for airfoil or circular sections based on airfoil type.
+% Automatically handles both airfoil and circular section calculations.
+%
+% Syntax:
+%   [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, twist_deg, r, c, lambda_r, V_wind, omega_rad, pitch_rad, data, rho, mu, varargin)
+%
+% Input Arguments:
+%   airfoil     - Airfoil name or 'Circle' for circular sections
+%   twist_deg   - Local geometric twist [degrees]
+%   r           - Radial position [m]
+%   c           - Local chord [m]
+%   lambda_r    - Local tip-speed ratio
+%   V_wind      - Freestream wind speed [m/s]
+%   omega_rad   - Rotor speed [rad/s]
+%   pitch_rad   - Blade pitch angle [rad]
+%   data        - Wind turbine data structure
+%   rho         - Air density [kg/m³]
+%   mu          - Air dynamic viscosity [Pa·s]
+%   varargin    - Optional parameters (B, R for future use)
+%
+% Output Arguments:
+%   a, a_prime  - Axial and tangential induction factors
+%   CL, CD      - Lift and drag coefficients
+%   Cn, Ct      - Normal and tangential force coefficients
+%   V_rel       - Relative velocity [m/s]
+%
+% Description:
+%   Unified function that automatically determines whether to use airfoil
+%   or circular section analysis based on the airfoil name. Handles both
+%   lifting airfoil sections and non-lifting circular sections.
+%
+% Example:
+%   [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients('DU96_W_180', 5, r, c, lambda_r, V_wind, omega, pitch, data, rho, mu);
+
+    airfoil_name = regexprep(regexprep(airfoil, '\s+', ''), '[-–—]', '_');  % Clean airfoil name
+    twist_rad = deg2rad(twist_deg);  % Convert twist to radians
+    
+    if strcmpi(airfoil_name, 'circle')
+        [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, ...
+            lambda_r, V_wind, omega_rad, rho, mu);  % Circular section analysis
+    else
+        perf_data = data.airfoilPerformance.(airfoil_name);  % Airfoil performance data
+        [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, c, twist_rad, perf_data, ...
+            lambda_r, V_wind, omega_rad, pitch_rad);  % Airfoil section analysis
+    end
 end
 
 %% ============================================================================
@@ -870,6 +1113,10 @@ function result = Deliverable5(config, data, lambda, pitch_deg)
         'material_properties', struct('E', E, 'S_ut', S_ut, 'S_y', S_y));
 end
 
+%% ============================================================================
+%% LOADING, DEFLECTION, AND STRESS FUNCTIONS
+%% ============================================================================
+
 function thrust_force = calculateRotorThrust(data, V_wind, lambda, pitch_deg)
 % CALCULATEROTORTHRUST Calculate rotor thrust force using BEM analysis
 % Computes total rotor thrust force by integrating sectional thrust forces
@@ -1197,6 +1444,10 @@ function stress_results = computeStressAnalysis(section_props, load_cases, defle
         'min_SF', min([safety_factor_maximum_normal_stress_theory, safety_factor_maximum_shear_stress_theory, safety_factor_distortion_energy_theory])));
 end
 
+%% ============================================================================
+%% PLOTTING FUNCTIONS
+%% ============================================================================
+
 function createTowerDeflectionPlot(deflection_results, ~, config)
 % CREATETOWERDEFLECTIONPLOT Create tower deflection visualization
 % Generates plots showing tower deflection profiles for different load cases
@@ -1515,473 +1766,6 @@ function createTowerAnalysisPlots(deflection_results, load_cases, section_props,
     end
 end
 
-
-function data = ParameterExtraction(config)
-% PARAMETEREXTRACTION Extracts all data from the Given Parameters folder
-% and organizes it into a structured format for wind turbine analysis.
-%
-% Syntax:
-%   data = ParameterExtraction(config)
-%
-% Input Arguments:
-%   config - Configuration structure with parameters_path field
-%
-% Output Arguments:
-%   data - Structure containing all extracted parameters organized by category
-%     .blade              - Blade profile data and geometry
-%     .tower              - Tower specifications and properties
-%     .airfoils           - Airfoil coordinate data
-%     .airfoilPerformance - Airfoil performance data (CL, CD, CM vs AoA)
-%     .materials          - Material properties (air, steel)
-%     .turbine            - Wind turbine specifications
-%     .deliverables       - Predefined parameters for each deliverable
-%     .metadata           - Extraction metadata and timestamps
-%
-% Description:
-%   Comprehensive data extraction function that reads all wind turbine
-%   parameters from CSV and DAT files, organizes them into structured
-%   format, and adds calculated parameters for analysis.
-%
-% Example:
-%   config.parameters_path = 'Auxilary Information/Given Parameters/';
-%   data = ParameterExtraction(config);
-%   fprintf('Turbine: %s\n', data.turbine.model);
-
-    % ============================================================================
-    % DATA EXTRACTION SETUP
-    % ============================================================================
-    basePath = config.parameters_path;  % Base path to parameters folder
-    data = struct();  % Initialize main data structure
-    
-    try
-        % ============================================================================
-        % PRIMARY DATA EXTRACTION
-        % ============================================================================
-        % Extract all major data components from their respective files
-        data.blade = extractBladeProfile(fullfile(basePath, 'BladeProfile.csv'));  % Blade geometry and airfoil assignments
-        data.tower = extractTowerSpecs(fullfile(basePath, 'towerSpecs.csv'));       % Tower structural specifications
-        data.airfoils = extractAirfoilCoordinates(basePath);                        % Airfoil coordinate data (.dat files)
-        data.airfoilPerformance = extractAirfoilPerformance(basePath);             % Airfoil performance data (.csv files)
-        data.materials = extractMaterialProperties();                               % Material properties (air, steel)
-        data.turbine = extractTurbineSpecifications();                             % Wind turbine specifications (Clipper Liberty C96)
-
-        % ============================================================================
-        % DELIVERABLE-SPECIFIC PARAMETERS
-        % ============================================================================
-        % Predefined operating conditions for each deliverable
-        % These match the requirements specified in the project documentation
-        data.deliverables = struct('part1', struct('V_wind', 10, 'omega_rpm', 14, 'pitch_deg', 0), ...
-            'part2', struct('V_wind', 8, 'lambda', 6.91), ...
-            'part3', struct('V_wind', 6), ...
-            'part4', struct('V_wind', 14.6));
-        
-        % ============================================================================
-        % METADATA AND DOCUMENTATION
-        % ============================================================================
-        % Add extraction metadata for traceability and documentation
-        data.metadata = struct('extractionDate', datetime('now'), 'sourceFolder', basePath, ...
-            'description', 'Wind turbine parameters extracted from Given Parameters folder');
-        
-    catch ME
-        % Error handling for file reading failures
-        error('Parameter extraction failed: %s', ME.message);
-    end
-end
-
-function bladeData = extractBladeProfile(filePath)
-% EXTRACTBLADEPROFILE Extract blade profile data from CSV file
-% Reads blade geometry data including chord length, twist angle, and airfoil
-% assignments from CSV file and organizes into structured format.
-%
-% Inputs:
-%   filePath    - Path to blade profile CSV file
-%
-% Outputs:
-%   bladeData   - Structure containing blade profile data and metadata
-    
-    bladeTable = readtable(filePath, detectImportOptions(filePath));
-    bladeData = struct('profile', bladeTable, 'description', 'Blade profile data including geometry, twist, and airfoil assignments', ...
-        'airfoilTypes', unique(bladeTable.Airfoil), 'totalLength', max(bladeTable.DistanceFromCenterOfRotation), ...
-        'stations', height(bladeTable));
-end
-
-function towerData = extractTowerSpecs(filePath)
-% EXTRACTTOWERSPECS Extract tower specification data from CSV file
-% Reads tower geometry data including height, outer diameter, and wall thickness
-% from CSV file and calculates additional structural parameters.
-%
-% Inputs:
-%   filePath    - Path to tower specifications CSV file
-%
-% Outputs:
-%   towerData   - Structure containing tower specifications and calculated parameters
-    
-    towerTable = readtable(filePath, detectImportOptions(filePath));
-    towerData = struct('specs', towerTable, 'description', 'Tower specifications including height, diameter, and wall thickness', ...
-        'dragCoefficient', 0.7, 'totalHeight', max(towerTable.Height_mm_) / 1000, ...
-        'sections', height(towerTable), 'baseDiameter', towerTable.OD_mm_(1) / 1000, ...
-        'topDiameter', towerTable.OD_mm_(end) / 1000);
-end
-
-function airfoilData = extractAirfoilCoordinates(basePath)
-% EXTRACTAIRFOILCOORDINATES Extract airfoil coordinate data from .dat files
-% Reads airfoil coordinate data from .dat files and organizes into structured
-% format for use in aerodynamic calculations and visualizations.
-%
-% Inputs:
-%   basePath    - Base directory path containing airfoil .dat files
-%
-% Outputs:
-%   airfoilData - Structure containing coordinate data for each airfoil
-    
-    airfoilData = struct();
-    airfoilFiles = {'180.dat', '210.dat', '250.dat', '300.dat'};
-    airfoilNames = {'DU96_W_180', 'DU93_W_210', 'DU91_W2_250', 'DU97_W_300'};
-    
-    for i = 1:length(airfoilFiles)
-        filePath = fullfile(basePath, airfoilFiles{i});
-        if exist(filePath, 'file')
-            try
-                fid = fopen(filePath, 'r');
-                lines = cell(1000, 1); line_count = 0;
-                line = fgetl(fid);
-                while ischar(line)
-                    if ~startsWith(strtrim(line), '%')
-                        line_count = line_count + 1; lines{line_count} = line;
-                    end
-                    line = fgetl(fid);
-                end
-                fclose(fid); lines = lines(1:line_count);
-                
-                coords = zeros(length(lines), 2);
-                for j = 1:length(lines)
-                    coords(j, :) = str2double(strsplit(lines{j}));
-                end
-                
-                airfoilData.(airfoilNames{i}) = struct('x', coords(:, 1), 'y', coords(:, 2), ...
-                    'description', sprintf('Airfoil coordinates for %s', airfoilNames{i}), 'numPoints', length(coords));
-            catch ME
-                warning('Failed to read airfoil file %s: %s', airfoilFiles{i}, ME.message);
-            end
-        end
-    end
-end
-
-function performanceData = extractAirfoilPerformance(basePath)
-% EXTRACTAIRFOILPERFORMANCE Extract airfoil performance data from CSV files
-% Reads airfoil performance data including lift, drag, and moment coefficients
-% versus angle of attack from CSV files for BEM analysis.
-%
-% Inputs:
-%   basePath        - Base directory path containing airfoil performance CSV files
-%
-% Outputs:
-%   performanceData - Structure containing performance data for each airfoil
-    
-    performanceData = struct();
-    perfFiles = {'DU96-W-180.csv', 'DU93-W-210.csv', 'DU91-W2-250.csv', 'DU97-W-300.csv'};
-    perfNames = {'DU96_W_180', 'DU93_W_210', 'DU91_W2_250', 'DU97_W_300'};
-    
-    for i = 1:length(perfFiles)
-        filePath = fullfile(basePath, perfFiles{i});
-        if exist(filePath, 'file')
-            try
-                perfTable = readtable(filePath, detectImportOptions(filePath));
-                performanceData.(perfNames{i}) = struct('data', perfTable, 'AoA', perfTable.AoA, ...
-                    'CL', perfTable.CL, 'CD', perfTable.CD, 'CM', perfTable.CM, ...
-                    'description', sprintf('Performance data for %s', perfNames{i}), ...
-                    'numPoints', height(perfTable), 'maxCL', max(perfTable.CL), ...
-                    'minCD', min(perfTable.CD), 'AoARange', [min(perfTable.AoA), max(perfTable.AoA)]);
-            catch ME
-                warning('Failed to read performance file %s: %s', perfFiles{i}, ME.message);
-            end
-        end
-    end
-end
-
-function materialData = extractMaterialProperties()
-% EXTRACTMATERIALPROPERTIES Extract material properties for air and steel
-% Defines material properties for air (aerodynamic calculations) and steel
-% (structural calculations) with comprehensive property sets and units.
-%
-% Outputs:
-%   materialData - Structure containing air and steel material properties
-    
-    materialData = struct('air', struct('density', 1.1, 'viscosity', 1.8e-5, ...
-        'description', 'Air properties for aerodynamic calculations', ...
-        'units', struct('density', 'kg/m³', 'viscosity', 'Ns/m²')), ...
-        'steel', struct('type', 'ASTM A572, Grade 50', 'density', 7850, ...
-        'tensileStrength', 450e6, 'yieldStrength', 345e6, 'youngsModulus', 200e9, ...
-        'description', 'Steel properties for structural calculations', ...
-        'units', struct('density', 'kg/m³', 'tensileStrength', 'Pa', 'yieldStrength', 'Pa', 'youngsModulus', 'Pa'), ...
-        'safetyFactor', 1.5, 'allowableStress', 345e6/1.5, 'enduranceLimitFactor', 0.5, ...
-        'fatigueFactors', struct('sizeFactor', 1.0, 'surfaceFactor', 0.9, 'reliabilityFactor', 0.7)));
-end
-
-function turbineData = extractTurbineSpecifications()
-% EXTRACTTURBINESPECIFICATIONS Extract wind turbine specifications
-% Defines comprehensive wind turbine specifications for Clipper Liberty C96
-% including performance characteristics, dimensions, and calculated parameters.
-%
-% Outputs:
-%   turbineData - Structure containing complete turbine specifications
-    
-    turbineData = struct('model', 'Clipper Liberty C96 2.5 MW', 'location', 'Rosemount, MN', ...
-        'description', 'UMN Clipper C96 Wind Turbine specifications', ...
-        'characteristics', struct('blades', 3, 'orientation', 'upwind', ...
-        'control', 'pitch controlled, variable speed', 'yawControl', true, 'yawAngle', 0), ...
-        'performance', struct('ratedPower', 2.5e6, 'bladeRadius', 48, 'rotorRadius', 48, ...
-        'hubHeight', 80.4, 'hubRadius', 1.3, 'cutInSpeed', 4, 'ratedSpeed', 11, ...
-        'cutOutSpeed', 25, 'rotorSpeedRange', [9.6, 15.5]), ...
-        'calculated', struct('rotorArea', pi * 48^2, 'sweptArea', pi * 48^2, ...
-        'powerDensity', 2.5e6 / (pi * 48^2), 'rotorSpeedRange_rads', [9.6, 15.5] * 2 * pi / 60), ...
-        'units', struct('power', 'W', 'length', 'm', 'speed', 'm/s', 'rotorSpeed', 'RPM', 'angle', 'degrees'));
-end
-
-function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, ~, twist_rad, perf_data, lambda_r, V_wind, omega_rad, pitch_rad)
-% SOLVEBEMSECTION Closed-form BEM analysis for airfoil sections
-% Calculates induction factors and sectional loads using Blade Element Momentum theory
-% without iteration for improved computational efficiency.
-%
-% Syntax:
-%   [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, ~, twist_rad, perf_data, lambda_r, V_wind, omega_rad, pitch_rad)
-%
-% Input Arguments:
-%   r           - Radial position [m]
-%   ~           - Local chord [m] (unused in this implementation)
-%   twist_rad   - Local geometric twist [rad]
-%   perf_data   - Airfoil polar struct with fields .AoA, .CL, .CD
-%   lambda_r    - Local tip-speed ratio (λ * r / R)
-%   V_wind      - Freestream wind speed [m/s]
-%   omega_rad   - Rotor speed [rad/s]
-%   pitch_rad   - Blade pitch angle [rad]
-%
-% Output Arguments:
-%   a, a_prime  - Axial and tangential induction factors
-%   CL, CD      - Section lift and drag coefficients at computed α
-%   Cn, Ct      - Normal and tangential force coefficients
-%   V_rel       - Relative velocity magnitude at section [m/s]
-%
-% Description:
-%   Performs closed-form BEM analysis assuming momentum-limit induction
-%   (a = 1/3) and calculates corresponding tangential induction factor.
-%   Interpolates airfoil performance data to find lift and drag coefficients.
-%
-% Example:
-%   [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, c, twist, perf_data, lambda_r, V_wind, omega, pitch);
-
-    % ============================================================================
-    % CLOSED-FORM BEM ANALYSIS (NON-ITERATIVE)
-    % ============================================================================
-    % Use momentum-limit assumption for computational efficiency
-    % This avoids iterative solution while maintaining reasonable accuracy
-    a = 1/3;  % Assumed momentum-limit axial induction factor (maximum theoretical value)
-    
-    % Calculate tangential induction factor from momentum theory
-    % Derived from: a_prime = -0.5 + 0.5 * sqrt(1 + (4/λr²) * a * (1-a))
-    a_prime = -0.5 + 0.5 * sqrt(1 + (4/(lambda_r^2)) * a * (1 - a));  % Tangential induction factor
-    
-    % ============================================================================
-    % AERODYNAMIC ANGLE CALCULATIONS
-    % ============================================================================
-    % Calculate inflow angle from velocity triangle
-    phi = atan((1 - a) / ((1 + a_prime) * lambda_r));  % Inflow angle [rad]
-    
-    % Calculate angle of attack: α = φ - (θ + β)
-    % where θ = geometric twist, β = pitch angle
-    alpha_deg = rad2deg(phi - (twist_rad + pitch_rad));  % Angle of attack [deg]
-    
-    % ============================================================================
-    % AIRFOIL PERFORMANCE INTERPOLATION
-    % ============================================================================
-    % Interpolate airfoil performance data at calculated angle of attack
-    % Uses linear interpolation with extrapolation for angles outside data range
-    CL = interp1(perf_data.AoA, perf_data.CL, alpha_deg, 'linear', 'extrap');  % Lift coefficient
-    CD = interp1(perf_data.AoA, perf_data.CD, alpha_deg, 'linear', 'extrap');  % Drag coefficient
-    
-    % ============================================================================
-    % FORCE COEFFICIENT TRANSFORMATION
-    % ============================================================================
-    % Transform lift/drag coefficients to normal/tangential force coefficients
-    % using inflow angle transformation
-    s = sin(phi); cos_phi = cos(phi);  % Trigonometric functions for efficiency
-    Cn = CL * cos_phi + CD * s;        % Normal force coefficient (thrust direction)
-    Ct = CL * s - CD * cos_phi;        % Tangential force coefficient (torque direction)
-    
-    % ============================================================================
-    % RELATIVE VELOCITY CALCULATION
-    % ============================================================================
-    % Calculate relative velocity magnitude from velocity triangle
-    % V_rel = sqrt(V_axial² + V_tangential²)
-    V_rel = sqrt((V_wind*(1-a))^2 + (omega_rad*r*(1+a_prime))^2);  % Relative velocity [m/s]
-end
-
-function [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, lambda_r, V_wind, omega_rad, rho, mu)
-% SOLVECIRCLESECTION BEM analysis for circular sections
-% Calculates induction factors and loads for circular (non-lifting) sections
-% with zero lift coefficient and Reynolds-dependent drag coefficient.
-%
-% Syntax:
-%   [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, lambda_r, V_wind, omega_rad, rho, mu)
-%
-% Input Arguments:
-%   r           - Radial position [m]
-%   c           - Local chord (diameter) [m]
-%   lambda_r    - Local tip-speed ratio (λ * r / R)
-%   V_wind      - Freestream wind speed [m/s]
-%   omega_rad   - Rotor speed [rad/s]
-%   rho         - Air density [kg/m³]
-%   mu          - Air dynamic viscosity [Pa·s]
-%
-% Output Arguments:
-%   a, a_prime  - Axial and tangential induction factors
-%   CL, CD      - Lift and drag coefficients
-%   Cn, Ct      - Normal and tangential force coefficients
-%   V_rel       - Relative velocity [m/s]
-%
-% Description:
-%   Performs BEM analysis for circular sections (e.g., tower sections)
-%   assuming zero lift coefficient and Reynolds-dependent drag coefficient.
-%   Uses empirical drag coefficient correlations for circular cylinders.
-%
-% Example:
-%   [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, lambda_r, V_wind, omega, rho, mu);
-    
-    % ============================================================================
-    % CIRCULAR SECTION BEM ANALYSIS
-    % ============================================================================
-    % Use same momentum-limit assumption as airfoil sections for consistency
-    a = 1/3;  % Assumed momentum-limit axial induction factor
-    a_prime = -0.5 + 0.5 * sqrt(1 + (4/(lambda_r^2)) * a * (1 - a));  % Tangential induction factor
-    
-    % Calculate inflow angle (same as airfoil sections)
-    phi = atan((1 - a) / ((1 + a_prime) * lambda_r));  % Inflow angle [rad]
-    
-    % ============================================================================
-    % CIRCULAR SECTION AERODYNAMICS
-    % ============================================================================
-    % Calculate relative velocity and Reynolds number for drag coefficient
-    V_rel = sqrt((V_wind*(1-a))^2 + (omega_rad*r*(1+a_prime))^2);  % Relative velocity [m/s]
-    Re = max(1, rho * V_rel * c / mu);  % Reynolds number (minimum 1 to avoid division by zero)
-    
-    % Circular sections have zero lift and Reynolds-dependent drag
-    CD = cylinderCDlocal(Re);  % Drag coefficient from empirical correlation
-    CL = 0;  % Zero lift coefficient for circular sections (no camber)
-    
-    % ============================================================================
-    % FORCE COEFFICIENT CALCULATION
-    % ============================================================================
-    % Transform to normal/tangential force coefficients (same as airfoil sections)
-    s = sin(phi); cphi = cos(phi);  % Trigonometric functions
-    Cn = CL * cphi + CD * s;        % Normal force coefficient (primarily drag)
-    Ct = CL * s - CD * cphi;        % Tangential force coefficient (primarily drag)
-end
-
-function C_D = cylinderCDlocal(Re)
-% CYLINDERCDLOCAL Drag coefficient for circular cylinders
-% Calculates drag coefficient for smooth circular cylinders in cross-flow
-% using empirical correlations based on Reynolds number.
-%
-% Syntax:
-%   C_D = cylinderCDlocal(Re)
-%
-% Input Arguments:
-%   Re - Reynolds number based on cylinder diameter
-%
-% Output Arguments:
-%   C_D - Drag coefficient
-%
-% Description:
-%   Uses empirical correlations to calculate drag coefficient for circular
-%   cylinders in cross-flow. Different correlations are used for different
-%   Reynolds number ranges to capture transition effects.
-%
-% Example:
-%   Re = 1e5;
-%   CD = cylinderCDlocal(Re);
-%   fprintf('Drag coefficient: %.3f\n', CD);
-
-    % ============================================================================
-    % REYNOLDS NUMBER-BASED DRAG COEFFICIENT CORRELATIONS
-    % ============================================================================
-    % Use different empirical correlations for different Reynolds number ranges
-    % to capture transition effects and flow regime changes
-    
-    if Re < 2e5
-        % ============================================================================
-        % LOW REYNOLDS NUMBER REGIME (Re < 2×10⁵)
-        % ============================================================================
-        % Laminar flow with boundary layer effects
-        % Correlation accounts for viscous effects and boundary layer development
-        C_D = 11 * Re.^(-0.75) + 0.9 * (1.0 - exp(-1000./Re)) + 1.2 * (1.0 - exp(-(Re./4500).^0.7));  % Low Re correlation
-        
-    elseif Re <= 5e5
-        % ============================================================================
-        % TRANSITION REGIME (2×10⁵ ≤ Re ≤ 5×10⁵)
-        % ============================================================================
-        % Critical Reynolds number region where boundary layer transitions from laminar to turbulent
-        % Drag coefficient drops significantly due to turbulent boundary layer
-        C_D = 10.^(0.32*tanh(44.4504 - 8 * log10(Re)) - 0.238793158);  % Transition region
-        
-    else
-        % ============================================================================
-        % HIGH REYNOLDS NUMBER REGIME (Re > 5×10⁵)
-        % ============================================================================
-        % Fully turbulent flow with logarithmic dependence on Reynolds number
-        % Represents the "supercritical" regime for circular cylinders
-        C_D = 0.1 * log10(Re) - 0.2533429;  % High Re correlation
-    end
-end
-
-function [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, twist_deg, r, c, lambda_r, V_wind, omega_rad, pitch_rad, data, rho, mu, varargin)
-% GETSECTIONCOEFFICIENTS Unified section coefficient calculation
-% Calculates BEM coefficients for airfoil or circular sections based on airfoil type.
-% Automatically handles both airfoil and circular section calculations.
-%
-% Syntax:
-%   [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients(airfoil, twist_deg, r, c, lambda_r, V_wind, omega_rad, pitch_rad, data, rho, mu, varargin)
-%
-% Input Arguments:
-%   airfoil     - Airfoil name or 'Circle' for circular sections
-%   twist_deg   - Local geometric twist [degrees]
-%   r           - Radial position [m]
-%   c           - Local chord [m]
-%   lambda_r    - Local tip-speed ratio
-%   V_wind      - Freestream wind speed [m/s]
-%   omega_rad   - Rotor speed [rad/s]
-%   pitch_rad   - Blade pitch angle [rad]
-%   data        - Wind turbine data structure
-%   rho         - Air density [kg/m³]
-%   mu          - Air dynamic viscosity [Pa·s]
-%   varargin    - Optional parameters (B, R for future use)
-%
-% Output Arguments:
-%   a, a_prime  - Axial and tangential induction factors
-%   CL, CD      - Lift and drag coefficients
-%   Cn, Ct      - Normal and tangential force coefficients
-%   V_rel       - Relative velocity [m/s]
-%
-% Description:
-%   Unified function that automatically determines whether to use airfoil
-%   or circular section analysis based on the airfoil name. Handles both
-%   lifting airfoil sections and non-lifting circular sections.
-%
-% Example:
-%   [a, a_prime, CL, CD, Cn, Ct, V_rel] = getSectionCoefficients('DU96_W_180', 5, r, c, lambda_r, V_wind, omega, pitch, data, rho, mu);
-
-    airfoil_name = regexprep(regexprep(airfoil, '\s+', ''), '[-–—]', '_');  % Clean airfoil name
-    twist_rad = deg2rad(twist_deg);  % Convert twist to radians
-    
-    if strcmpi(airfoil_name, 'circle')
-        [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveCircleSection(r, c, ...
-            lambda_r, V_wind, omega_rad, rho, mu);  % Circular section analysis
-    else
-        perf_data = data.airfoilPerformance.(airfoil_name);  % Airfoil performance data
-        [a, a_prime, CL, CD, Cn, Ct, V_rel] = solveBEMSection(r, c, twist_rad, perf_data, ...
-            lambda_r, V_wind, omega_rad, pitch_rad);  % Airfoil section analysis
-    end
-end
-
 function createVisualization(r_stations, dCP, dCT, CP, CT, ~, ~, ~, config)
 % CREATEVISUALIZATION Create visualization of BEM analysis results
 % Generates plots showing power and thrust distributions side by side
@@ -2205,6 +1989,232 @@ function createPowerPitchPlot(pitch_range, P_pitch, pitch_req, P_req, ratedPower
         saveas(gcf, 'Deliverable4_Power_vs_Pitch.png');
         fprintf('Power vs Pitch plot saved as Deliverable4_Power_vs_Pitch.png\n');
     end
+end
+
+%% ============================================================================
+%% DATA EXTRACTION FUNCTIONS
+%% ============================================================================
+
+function data = ParameterExtraction(config)
+% PARAMETEREXTRACTION Extracts all data from the Given Parameters folder
+% and organizes it into a structured format for wind turbine analysis.
+%
+% Syntax:
+%   data = ParameterExtraction(config)
+%
+% Input Arguments:
+%   config - Configuration structure with parameters_path field
+%
+% Output Arguments:
+%   data - Structure containing all extracted parameters organized by category
+%     .blade              - Blade profile data and geometry
+%     .tower              - Tower specifications and properties
+%     .airfoils           - Airfoil coordinate data
+%     .airfoilPerformance - Airfoil performance data (CL, CD, CM vs AoA)
+%     .materials          - Material properties (air, steel)
+%     .turbine            - Wind turbine specifications
+%     .deliverables       - Predefined parameters for each deliverable
+%     .metadata           - Extraction metadata and timestamps
+%
+% Description:
+%   Comprehensive data extraction function that reads all wind turbine
+%   parameters from CSV and DAT files, organizes them into structured
+%   format, and adds calculated parameters for analysis.
+%
+% Example:
+%   config.parameters_path = 'Auxilary Information/Given Parameters/';
+%   data = ParameterExtraction(config);
+%   fprintf('Turbine: %s\n', data.turbine.model);
+
+    % ============================================================================
+    % DATA EXTRACTION SETUP
+    % ============================================================================
+    basePath = config.parameters_path;  % Base path to parameters folder
+    data = struct();  % Initialize main data structure
+    
+    try
+        % ============================================================================
+        % PRIMARY DATA EXTRACTION
+        % ============================================================================
+        % Extract all major data components from their respective files
+        data.blade = extractBladeProfile(fullfile(basePath, 'BladeProfile.csv'));  % Blade geometry and airfoil assignments
+        data.tower = extractTowerSpecs(fullfile(basePath, 'towerSpecs.csv'));       % Tower structural specifications
+        data.airfoils = extractAirfoilCoordinates(basePath);                        % Airfoil coordinate data (.dat files)
+        data.airfoilPerformance = extractAirfoilPerformance(basePath);             % Airfoil performance data (.csv files)
+        data.materials = extractMaterialProperties();                               % Material properties (air, steel)
+        data.turbine = extractTurbineSpecifications();                             % Wind turbine specifications (Clipper Liberty C96)
+
+        % ============================================================================
+        % DELIVERABLE-SPECIFIC PARAMETERS
+        % ============================================================================
+        % Predefined operating conditions for each deliverable
+        % These match the requirements specified in the project documentation
+        data.deliverables = struct('part1', struct('V_wind', 10, 'omega_rpm', 14, 'pitch_deg', 0), ...
+            'part2', struct('V_wind', 8, 'lambda', 6.91), ...
+            'part3', struct('V_wind', 6), ...
+            'part4', struct('V_wind', 14.6));
+        
+        % ============================================================================
+        % METADATA AND DOCUMENTATION
+        % ============================================================================
+        % Add extraction metadata for traceability and documentation
+        data.metadata = struct('extractionDate', datetime('now'), 'sourceFolder', basePath, ...
+            'description', 'Wind turbine parameters extracted from Given Parameters folder');
+        
+    catch ME
+        % Error handling for file reading failures
+        error('Parameter extraction failed: %s', ME.message);
+    end
+end
+
+function bladeData = extractBladeProfile(filePath)
+% EXTRACTBLADEPROFILE Extract blade profile data from CSV file
+% Reads blade geometry data including chord length, twist angle, and airfoil
+% assignments from CSV file and organizes into structured format.
+%
+% Inputs:
+%   filePath    - Path to blade profile CSV file
+%
+% Outputs:
+%   bladeData   - Structure containing blade profile data and metadata
+    
+    bladeTable = readtable(filePath, detectImportOptions(filePath));
+    bladeData = struct('profile', bladeTable, 'description', 'Blade profile data including geometry, twist, and airfoil assignments', ...
+        'airfoilTypes', unique(bladeTable.Airfoil), 'totalLength', max(bladeTable.DistanceFromCenterOfRotation), ...
+        'stations', height(bladeTable));
+end
+
+function towerData = extractTowerSpecs(filePath)
+% EXTRACTTOWERSPECS Extract tower specification data from CSV file
+% Reads tower geometry data including height, outer diameter, and wall thickness
+% from CSV file and calculates additional structural parameters.
+%
+% Inputs:
+%   filePath    - Path to tower specifications CSV file
+%
+% Outputs:
+%   towerData   - Structure containing tower specifications and calculated parameters
+    
+    towerTable = readtable(filePath, detectImportOptions(filePath));
+    towerData = struct('specs', towerTable, 'description', 'Tower specifications including height, diameter, and wall thickness', ...
+        'dragCoefficient', 0.7, 'totalHeight', max(towerTable.Height_mm_) / 1000, ...
+        'sections', height(towerTable), 'baseDiameter', towerTable.OD_mm_(1) / 1000, ...
+        'topDiameter', towerTable.OD_mm_(end) / 1000);
+end
+
+function airfoilData = extractAirfoilCoordinates(basePath)
+% EXTRACTAIRFOILCOORDINATES Extract airfoil coordinate data from .dat files
+% Reads airfoil coordinate data from .dat files and organizes into structured
+% format for use in aerodynamic calculations and visualizations.
+%
+% Inputs:
+%   basePath    - Base directory path containing airfoil .dat files
+%
+% Outputs:
+%   airfoilData - Structure containing coordinate data for each airfoil
+    
+    airfoilData = struct();
+    airfoilFiles = {'180.dat', '210.dat', '250.dat', '300.dat'};
+    airfoilNames = {'DU96_W_180', 'DU93_W_210', 'DU91_W2_250', 'DU97_W_300'};
+    
+    for i = 1:length(airfoilFiles)
+        filePath = fullfile(basePath, airfoilFiles{i});
+        if exist(filePath, 'file')
+            try
+                fid = fopen(filePath, 'r');
+                lines = cell(1000, 1); line_count = 0;
+                line = fgetl(fid);
+                while ischar(line)
+                    if ~startsWith(strtrim(line), '%')
+                        line_count = line_count + 1; lines{line_count} = line;
+                    end
+                    line = fgetl(fid);
+                end
+                fclose(fid); lines = lines(1:line_count);
+                
+                coords = zeros(length(lines), 2);
+                for j = 1:length(lines)
+                    coords(j, :) = str2double(strsplit(lines{j}));
+                end
+                
+                airfoilData.(airfoilNames{i}) = struct('x', coords(:, 1), 'y', coords(:, 2), ...
+                    'description', sprintf('Airfoil coordinates for %s', airfoilNames{i}), 'numPoints', length(coords));
+            catch ME
+                warning('Failed to read airfoil file %s: %s', airfoilFiles{i}, ME.message);
+            end
+        end
+    end
+end
+
+function performanceData = extractAirfoilPerformance(basePath)
+% EXTRACTAIRFOILPERFORMANCE Extract airfoil performance data from CSV files
+% Reads airfoil performance data including lift, drag, and moment coefficients
+% versus angle of attack from CSV files for BEM analysis.
+%
+% Inputs:
+%   basePath        - Base directory path containing airfoil performance CSV files
+%
+% Outputs:
+%   performanceData - Structure containing performance data for each airfoil
+    
+    performanceData = struct();
+    perfFiles = {'DU96-W-180.csv', 'DU93-W-210.csv', 'DU91-W2-250.csv', 'DU97-W-300.csv'};
+    perfNames = {'DU96_W_180', 'DU93_W_210', 'DU91_W2_250', 'DU97_W_300'};
+    
+    for i = 1:length(perfFiles)
+        filePath = fullfile(basePath, perfFiles{i});
+        if exist(filePath, 'file')
+            try
+                perfTable = readtable(filePath, detectImportOptions(filePath));
+                performanceData.(perfNames{i}) = struct('data', perfTable, 'AoA', perfTable.AoA, ...
+                    'CL', perfTable.CL, 'CD', perfTable.CD, 'CM', perfTable.CM, ...
+                    'description', sprintf('Performance data for %s', perfNames{i}), ...
+                    'numPoints', height(perfTable), 'maxCL', max(perfTable.CL), ...
+                    'minCD', min(perfTable.CD), 'AoARange', [min(perfTable.AoA), max(perfTable.AoA)]);
+            catch ME
+                warning('Failed to read performance file %s: %s', perfFiles{i}, ME.message);
+            end
+        end
+    end
+end
+
+function materialData = extractMaterialProperties()
+% EXTRACTMATERIALPROPERTIES Extract material properties for air and steel
+% Defines material properties for air (aerodynamic calculations) and steel
+% (structural calculations) with comprehensive property sets and units.
+%
+% Outputs:
+%   materialData - Structure containing air and steel material properties
+    
+    materialData = struct('air', struct('density', 1.1, 'viscosity', 1.8e-5, ...
+        'description', 'Air properties for aerodynamic calculations', ...
+        'units', struct('density', 'kg/m³', 'viscosity', 'Ns/m²')), ...
+        'steel', struct('type', 'ASTM A572, Grade 50', 'density', 7850, ...
+        'tensileStrength', 450e6, 'yieldStrength', 345e6, 'youngsModulus', 200e9, ...
+        'description', 'Steel properties for structural calculations', ...
+        'units', struct('density', 'kg/m³', 'tensileStrength', 'Pa', 'yieldStrength', 'Pa', 'youngsModulus', 'Pa'), ...
+        'safetyFactor', 1.5, 'allowableStress', 345e6/1.5, 'enduranceLimitFactor', 0.5, ...
+        'fatigueFactors', struct('sizeFactor', 1.0, 'surfaceFactor', 0.9, 'reliabilityFactor', 0.7)));
+end
+
+function turbineData = extractTurbineSpecifications()
+% EXTRACTTURBINESPECIFICATIONS Extract wind turbine specifications
+% Defines comprehensive wind turbine specifications for Clipper Liberty C96
+% including performance characteristics, dimensions, and calculated parameters.
+%
+% Outputs:
+%   turbineData - Structure containing complete turbine specifications
+    
+    turbineData = struct('model', 'Clipper Liberty C96 2.5 MW', 'location', 'Rosemount, MN', ...
+        'description', 'UMN Clipper C96 Wind Turbine specifications', ...
+        'characteristics', struct('blades', 3, 'orientation', 'upwind', ...
+        'control', 'pitch controlled, variable speed', 'yawControl', true, 'yawAngle', 0), ...
+        'performance', struct('ratedPower', 2.5e6, 'bladeRadius', 48, 'rotorRadius', 48, ...
+        'hubHeight', 80.4, 'hubRadius', 1.3, 'cutInSpeed', 4, 'ratedSpeed', 11, ...
+        'cutOutSpeed', 25, 'rotorSpeedRange', [9.6, 15.5]), ...
+        'calculated', struct('rotorArea', pi * 48^2, 'sweptArea', pi * 48^2, ...
+        'powerDensity', 2.5e6 / (pi * 48^2), 'rotorSpeedRange_rads', [9.6, 15.5] * 2 * pi / 60), ...
+        'units', struct('power', 'W', 'length', 'm', 'speed', 'm/s', 'rotorSpeed', 'RPM', 'angle', 'degrees'));
 end
 
 % ============================================================================
