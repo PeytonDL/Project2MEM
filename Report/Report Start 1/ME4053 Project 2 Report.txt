@@ -1,0 +1,67 @@
+﻿Wind Turbine Analysis
+Evan Hobday, Peyton Lettau, Jordan Nguyen
+ME4053 Fall 2025
+October 31st, 2025
+________________
+Introduction
+This report presents the modeling and analysis of the University of Minnesota wind turbine located in Rosemount, Minnesota. A wind turbine utilizes the earth’s natural resource of wind as an input to convert kinetic energy to electrical energy. Incoming wind turns the blades of the turbine around a rotor which spins a generator and creates electricity. A key focus of this project was to analytically access the performance of the turbine. 
+
+
+This report outlines the methods used to model and analyze a wind turbine including _________. These techniques were used to determine the coefficient of power and coefficient of thrust under set conditions, the maximum coefficient of power for sweeps of blade pitch angle and tip speed ratio, the blade pitch angle to prevent overpowering the turbine, and a structural analysis of the turbine such as an analysis of tower deflection, internal stresses, and fatigue. The results from these analyses further provide qualitative and quantitative insights into the mechanical and structural performance of the turbine. 
+
+
+Methods
+In order to analytically determine key performance metrics such as the coefficient of power and thrust under certain conditions and the structural durability of the wind turbine, a model based on various theoretical and computational approaches was developed. Important assumptions leading to numerically derived equations included the following: ________.  The analysis was completed such that each blade was treated as an individual airfoil with geometric properties as defined in Figure 1.
+  
+  
+
+Figure 1: Airfoil geometry representative of one wind turbine blade slice
+ 
+Blade Analysis
+To initially compute the coefficient of power and the coefficient of thrust based on a constant wind velocity of 10 m/s, a rotational velocity of 14 rpm, and a pitch angle of 0 degrees, fundamental qualities in airfoil dynamics were considered. Beginning with the quantities of known values, the angular velocity was converted to radians per second and the tip-speed ratio was calculated using the following equation.
+INSERT TSR EQUATIONS HERE
+The axial induction factor was taken to be equal to ⅓ and thus the angular induction factor was determined using the following equation.
+INSERT ANGULAR INDUCTION FACTOR EQUATION HERE
+Considering the local velocities on an axial and tangential basis, the inflow angle between the rotor plane and the relative wind velocity was determined using the following equations.
+INSERT AXIAL, TANGENTIAL VEL AND INFLOW ANGLE
+The local angle of attack was then determined by subtracting the section twist angle and the section pitch angle from the inflow angle as follows. 
+INSERT AoA
+Once the angle of attack was obtained, coefficients of lift and drag were determined using interpolations of airfoil performance data. Additionally, for circular sections, the drag coefficient was taken to be constant and the coefficient of lift was taken as zero representative of a circular cylinder cross-section in flow. The values of lift and drag coefficients previously determined were then resolved into normal and tangential components of force coefficients as shown in the following equations.
+INSERT NORMAL AND TANGENTIAL FORCE COMPS
+Differential elements of thrust, torque, and power were then calculated by the following
+INSERT dT, dQ, dP
+where ________, and the relative velocity was solved as shown below.
+INSERT RELATIVE VELOCITY EQUATION
+Integration along the blade was then performed to determine total thrust and torque forces as well as the power using the following equations.
+INSERT INTEGRALS
+Finally, using the value of the power and of the thrust, the coefficient of power and the coefficient of thrust were calculated using the following equations.
+INSERT CP AND CT EQTNS
+
+
+Structural Analysis
+A structural analysis was additionally performed to investigate the tower deflection, overall stress, static failure, and fatigue of the wind turbine tower.
+
+
+
+
+Results and Discussion
+First, the coefficient of power and thrust were calculated for when the wind speed is 10 m/s, the rotational velocity of the turbine is 14 rpm and the pitch angle of the blades is 0 degrees. 
+Using a lumped analysis and assuming an ideal system, the best possible coefficient of power occurs when the axial induction factor is equal to ⅓ and this value is 0.5926. This is known as the Betz Limit. While the value of the axial induction factor used in this analysis is ⅓, a lumped analysis was not used. Instead, the power was calculated by integrating the torque on the blade over the radius of the blade. Then dividing the power by the power available in the wind over an area gives the coefficient of power. The maximum coefficient of power was calculated as 0.4224.
+        Using the same lumped analysis, the maximum coefficient of thrust occurs when the axial induction factor is ½ and this value is 1. Again, a lumped analysis was not used and instead the force on the blade was calculated by integrating the thrust force over the radius of the blade. This is then divided by the wind force to determine the coefficient of thrust of the turbine. The maximum coefficient of thrust was calculated to be 0.7041. 
+
+
+  
+
+Figure XXX: Coefficients of power and thrust over a sweep of pitch angle
+        Figure XXX shows the coefficients of power and thrust of the wind turbine as a range of pitch angles are used. Adjusting the pitch angle is done to maximize the power output of the wind turbine based on the wind speed. The wind speed given for this analysis is 8 m/s, which is slower than the speed given earlier, so the blades need to be pitched to maximize the surface area of the blade that is exposed to the wind. The goal is to maximize the coefficient of power and take the losses of the coefficient of thrust. 
+Using the same methods used to solve for the coefficients as before, they are calculated again with a sweep of the pitch angle from -15 to 15 degrees. The given tip speed ratio is used to calculate the rotational velocity of the turbine. Then the torque and force on the blade are calculated and integrated to determine the power and thrust output by the turbine respectively. Then each is divided by the max available power and wind force to determine the coefficients. The sweep of the pitch angle changes the lift and drag forces acting on the blade, causing a change in the torque on the blade. The pitch angle with the maximum lift force to drag force ratio will have the most torque and in turn the most power. Changing the pitch angle also changes the swept area of the blade. Factoring in these changes, it was determined that for the given wind speed and tip speed ratio, the pitch angle with the maximum coefficient of power is -2 degrees. At this point the coefficient of power is 0.4464 and the coefficient of thrust is 0.7583.
+Connect process of solving to equations in methods sections
+INSERT PLOT FOR DELIVERABLE 3
+Figure XXX: Plot showing maximum coefficient of power over a sweep of blade pitch angle and tip speed ratio
+The next thing is to determine the maximum coefficient of power of a sweep of both blade pitch angle and tip speed ratio for a given wind velocity. This was done with a range of pitch angle from -15 to 15 degrees, and a tip speed ratio of 8 to 13. With a given wind speed of 6 m/s, the two dimensional sweep resulted in a maximum coefficient of power of  1.3321, and this occurs at a pitch angle of -5 degrees and a tip speed ratio of 12.985. This coefficient of power is much higher than the Betz limit of 0.5926, and is also above 1, which is the absolute maximum value that this coefficient can have. The coefficient of power is the power output divided by the power input and it is impossible to output more power than what is put in. This happens because the model can predict the coefficient of power accurately for normal operating conditions, but in this case of low wind speed and high tip speed ratios, the assumptions made no longer hold. 
+
+
+Figure XXX: Plot of blade pitch angle needed to achieve rated power?
+        For a different wind speed of 14.6 m/s, the pitch angle that gives the rated power output of 2.5 MW 
+Conclusion
+Type
