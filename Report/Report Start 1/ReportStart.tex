@@ -53,9 +53,9 @@ With \(B\) blades, density \(\rho\), and local chord \(c\), the differential thr
 \mathrm{d}Q &= \tfrac{1}{2} \rho B\, c\, W^2\, C_t\, r\, \mathrm{d}r, \\
 \mathrm{d}P &= \Omega\, \mathrm{d}Q.
 \end{align}
-Spanwise integration from \(r_\min\) to \(R\) yields
+Spanwise integration from \(r_{\min}\) to \(R\) yields
 \begin{equation}
-T = \int_{r_\min}^R \mathrm{d}T, \qquad Q = \int_{r_\min}^R \mathrm{d}Q, \qquad P = \Omega Q.
+T = \int_{r_{\min}}^R \mathrm{d}T, \qquad Q = \int_{r_{\min}}^R \mathrm{d}Q, \qquad P = \Omega Q.
 \end{equation}
 Non-dimensional performance coefficients follow as
 \begin{equation}
@@ -94,17 +94,17 @@ Figure~\ref{fig:pitch_sweep} summarizes the behavior of \(C_\mathrm{P}\) and \(C
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=0.95\linewidth]{../../Deliverable4_Power_vs_Pitch.png}
+  \includegraphics[width=0.95\linewidth]{../../PNGS/Deliverable4_Power_vs_Pitch.png}
   \caption{Coefficients of power and thrust over a sweep of pitch angle.}
   \label{fig:pitch_sweep}
 \end{figure}
 
 \subsection{2D Sweep of Pitch and Tip-Speed Ratio}
-We explore a 2D sweep over \(\theta_\mathrm{pitch} \in [-15^\circ,15^\circ]\) and \(\lambda \in [8,13]\) at \(V_\infty=\SI{6}{m/s}\). Simple BEM models can produce non-physical \(C_\mathrm{P} > 1\) at low wind and very high \(\lambda\) if assumptions (e.g., steady attached flow, valid polars, and induction corrections) break down. We cap predictions using high-induction and stall models to enforce physical limits. The resulting map is shown in Figure~\ref{fig:cp_2d}.
+We explore a 2D sweep over \(\theta_\mathrm{pitch} \in [-15^\circ,15^\circ]\) and \(\lambda \in [8,13]\) at \(V_\infty=\SI{6}{m/s}\). Simple BEM models can produce non-physical \(C_\mathrm{P} > 1\) at low wind and very high \(\lambda\) if assumptions (e.g., steady attached flow, valid polars, and induction corrections) break down.  The resulting map is shown in Figure~\ref{fig:cp_2d}.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=0.95\linewidth]{../../2D_CP_Optimization_Results.png}
+  \includegraphics[width=0.95\linewidth]{../../PNGS/2D_CP_Optimization_Results.png}
   \caption{Two-dimensional sweep of \(C_\mathrm{P}\) over pitch and tip-speed ratio. Regions exceeding physical limits are mitigated by model corrections.}
   \label{fig:cp_2d}
 \end{figure}
@@ -114,7 +114,7 @@ For higher wind speeds (e.g., \SI{14.6}{m/s}), blade pitch is increased to maint
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=0.9\linewidth]{../../Pitch_Optimization_Results.png}
+  \includegraphics[width=0.9\linewidth]{../../PNGS/Pitch_Optimization_Results.png}
   \caption{Pitch angle required to achieve rated power across wind speeds.}
   \label{fig:pitch_to_rated}
 \end{figure}
@@ -124,22 +124,22 @@ We analyze tower deflection, stress, and fatigue using thrust-derived overturnin
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=0.9\linewidth]{../../Tower_Deflection_Analysis.png}
+  \includegraphics[width=0.9\linewidth]{../../PNGS/Tower_Deflection_Analysis.png}
   \caption{Tower tip deflection under operating loads.}
   \label{fig:tower_deflection}
 \end{figure}
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=0.9\linewidth]{../../Tower_Load_Distribution.png}
+  \includegraphics[width=0.9\linewidth]{../../PNGS/Tower_Load_Distribution.png}
   \caption{Distributed load and internal force resultants along the tower height.}
   \label{fig:tower_loads}
 \end{figure}
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=0.48\linewidth]{../../Mohr_Circle_Analysis.png}\hfill
-  \includegraphics[width=0.48\linewidth]{../../Goodman_Diagram_Analysis.png}
+  \includegraphics[width=0.48\linewidth]{../../PNGS/Mohr_Circle_Analysis.png}\hfill
+  \includegraphics[width=0.48\linewidth]{../../PNGS/Goodman_Diagram_Analysis.png}
   \caption{Left: Mohr's circle for combined stress at the tower base. Right: Goodman diagram for fatigue assessment.}
   \label{fig:tower_mohr_goodman}
 \end{figure}
