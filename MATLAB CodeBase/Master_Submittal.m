@@ -819,8 +819,8 @@ function [CP_max, optimal_conditions] = Deliverable3(config, data)
 %       CP_max, optimal.lambda, optimal.pitch_angle);
 
     % Define optimization parameters
-    V_wind = data.deliverables.part3.V_wind;  % Wind speed [m/s]
-    pitch_min = -15; pitch_max = 15; pitch_step = 1;  % Pitch angle range [deg]
+	V_wind = data.deliverables.part3.V_wind;  % Wind speed [m/s]
+	pitch_min = -10; pitch_max = 10; pitch_step = 1;  % Pitch angle range [deg]
     
     % Extract turbine parameters
     R = data.turbine.performance.rotorRadius;  % Rotor radius [m]
@@ -1924,24 +1924,38 @@ function create3DOptimizationPlot(lambda_range, pitch_range, CP_matrix, optimal_
         return;
     end
     
-    figure(3); set(gcf, 'Position', [100, 100, 800, 600]);
+	figure(3); set(gcf, 'Position', [100, 100, 800, 600]); set(gcf, 'Renderer', 'opengl');
     
     % Create meshgrid for 3D plotting (flipped axes)
     [PITCH, LAMBDA] = meshgrid(pitch_range, lambda_range);
     
     % 3D surface plot (flipped axes)
-    surf(PITCH, LAMBDA, CP_matrix');
+	surf(PITCH, LAMBDA, CP_matrix', 'EdgeColor', 'none', 'DisplayName', 'C_P surface');
+	colormap(turbo);
+	caxis([0, max(CP_matrix(:))]);
+	hold on;
+	c = colorbar; ylabel(c, 'C_P');
+
+	% Add Betz limit translucent plane (explicit red patch)
+	betzLimit = 16/27;
+	px = [min(pitch_range) max(pitch_range) max(pitch_range) min(pitch_range)];
+	py = [min(lambda_range) min(lambda_range) max(lambda_range) max(lambda_range)];
+	pz = (betzLimit + 1e-6) * ones(1, 4); % slight offset to avoid z-fighting
+	patch('XData', px, 'YData', py, 'ZData', pz, 'FaceColor', 'red', 'FaceAlpha', 0.35, 'EdgeColor', 'red', 'LineWidth', 1, 'DisplayName', 'Betz limit');
+	set(gca, 'SortMethod', 'childorder');
+
+	% Overlay contour lines for better visual discrimination
+	contour3(PITCH, LAMBDA, CP_matrix', 20, 'k:', 'LineWidth', 0.8);
     xlabel('Pitch Angle (degrees)');
     ylabel('Tip Speed Ratio (\lambda)');
     zlabel('Power Coefficient (C_P)');
     title(sprintf('Wind Turbine 3D Performance Optimization (V = %.1f m/s)', V_wind)); %'
-    shading interp;
-    colorbar;
+	shading interp;
     
-    % Highlight optimal point
-    hold on;
-    plot3(optimal_pitch, optimal_lambda, CP_max, 'ro', 'MarkerSize', 12, 'LineWidth', 3, 'MarkerFaceColor', 'red');
-    hold off;
+	% Highlight optimal point
+	plot3(optimal_pitch, optimal_lambda, CP_max, 'ro', 'MarkerSize', 12, 'LineWidth', 3, 'MarkerFaceColor', 'red', 'DisplayName', 'Optimal');
+	legend('Location', 'northeastoutside');
+	hold off;
     
     % Add text annotation for optimal point (moved vertically by +0.75, pitch axis by +5)
     text(optimal_pitch + 5, optimal_lambda, CP_max + 0.75, ...
@@ -1949,8 +1963,8 @@ function create3DOptimizationPlot(lambda_range, pitch_range, CP_matrix, optimal_
         'FontSize', 10, 'FontWeight', 'bold', 'Color', 'red', ...
         'BackgroundColor', 'white', 'EdgeColor', 'red');
     
-    % Improve view angle
-    view(45, 60);
+	% Improve view angle
+	view(45, 30);
     
     % Save plot if enabled
     if config.save_plots
