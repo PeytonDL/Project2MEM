@@ -95,9 +95,9 @@ function config = createConfig() % USED FOR CHOOSING OUTPUT PLOTS
     % Dependencies: D5 requires D4 results for realistic operating conditions
     config.run_deliverable_1 =      true;    % Basic BEM Analysis (CP, CT calculation)
     config.run_deliverable_2 =      true;    % Pitch Optimization (optimal pitch finding)
-    config.run_deliverable_3 =      true;    % 2D CP Optimization (lambda & pitch optimization)
-    config.run_deliverable_4 =      true;    % Rated Power Pitch Control (pitch for 2.5 MW)
-    config.run_deliverable_5 =      true;    % Tower Structural Analysis (deflection & stress)
+    config.run_deliverable_3 =      false;    % 2D CP Optimization (lambda & pitch optimization)
+    config.run_deliverable_4 =      false;    % Rated Power Pitch Control (pitch for 2.5 MW)
+    config.run_deliverable_5 =      false;    % Tower Structural Analysis (deflection & stress)
     
     % ============================================================================
     % VISUALIZATION CONTROL
@@ -105,18 +105,18 @@ function config = createConfig() % USED FOR CHOOSING OUTPUT PLOTS
     % Enable/disable specific plot generation for each deliverable
     % Set to true to generate plots, false to skip (saves computation time)
     config.plot_d1_results =        false;    % D1: Side-by-side CP/CT distribution plots
-    config.plot_d2_optimization =   false;    % D2: CP/CT vs pitch angle optimization
-    config.plot_d3_optimization =   true;    % D3: 3D surface plot of CP optimization
+    config.plot_d2_optimization =   true;    % D2: CP/CT vs pitch angle optimization
+    config.plot_d3_optimization =   false;    % D3: 3D surface plot of CP optimization
     config.plot_d4_power =          false;    % D4: Power vs pitch for rated power control
-    config.plot_d5_deflection =     true;    % D5: Tower deflection profile plots
+    config.plot_d5_deflection =     false;    % D5: Tower deflection profile plots
     config.plot_d5_mohr =           false;    % D5: Mohrs circle stress analysis
-    config.plot_d5_goodman =        true;    % D5: Goodman diagram fatigue analysis
-    config.plot_d5_tower =          true;    % D5: Comprehensive tower analysis plots
+    config.plot_d5_goodman =        false;    % D5: Goodman diagram fatigue analysis
+    config.plot_d5_tower =          false;    % D5: Comprehensive tower analysis plots
     
     % ============================================================================
     % OUTPUT AND FILE MANAGEMENT
     % ============================================================================
-    config.save_plots = false;          % Save all generated plots as PNG files
+    config.save_plots = true;          % Save all generated plots as PNG files
     config.parameters_path = 'Auxilary Information/Given Parameters/'; % Path to input data files
     
     % ============================================================================
@@ -1897,7 +1897,7 @@ function createPitchOptimizationPlot(pitch_range, CP_values, CT_values, optimal_
     hold off;
     xlabel('Pitch Angle (degrees)');
     title(sprintf('Wind Turbine Pitch Optimization (V = %.1f m/s, \\lambda = %.1f)', V_wind, lambda));
-    legend('C_P', 'C_T', sprintf('Optimal \\theta = %.1f°', optimal_pitch), 'Optimal C_P', 'Location', 'best'); grid on;
+    legend('C_P', 'C_T', sprintf('Optimal \\beta = %.1f°', optimal_pitch), 'Optimal C_P', 'Location', 'best'); grid on;
     
     if config.save_plots
         saveas(gcf, 'Pitch_Optimization_Results.png');

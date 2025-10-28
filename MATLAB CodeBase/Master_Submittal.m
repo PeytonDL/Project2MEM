@@ -1897,7 +1897,7 @@ function createPitchOptimizationPlot(pitch_range, CP_values, CT_values, optimal_
     hold off;
     xlabel('Pitch Angle (degrees)');
     title(sprintf('Wind Turbine Pitch Optimization (V = %.1f m/s, \\lambda = %.1f)', V_wind, lambda));
-    legend('C_P', 'C_T', sprintf('Optimal \\theta = %.1f°', optimal_pitch), 'Optimal C_P', 'Location', 'best'); grid on;
+    legend('C_P', 'C_T', sprintf('Optimal \\beta = %.1f°', optimal_pitch), 'Optimal C_P', 'Location', 'best'); grid on;
     
     if config.save_plots
         saveas(gcf, 'Pitch_Optimization_Results.png');
