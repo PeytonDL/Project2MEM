@@ -104,10 +104,10 @@ function config = createConfig() % USED FOR CHOOSING OUTPUT PLOTS
     % ============================================================================
     % Enable/disable specific plot generation for each deliverable
     % Set to true to generate plots, false to skip (saves computation time)
-    config.plot_d1_results =        false;    % D1: Side-by-side CP/CT distribution plots
-    config.plot_d2_optimization =   false;    % D2: CP/CT vs pitch angle optimization
-    config.plot_d3_optimization =   false;    % D3: 3D surface plot of CP optimization
-    config.plot_d4_power =          false;    % D4: Power vs pitch for rated power control
+    config.plot_d1_results =        true;    % D1: Side-by-side CP/CT distribution plots
+    config.plot_d2_optimization =   true;    % D2: CP/CT vs pitch angle optimization
+    config.plot_d3_optimization =   true;    % D3: 3D surface plot of CP optimization
+    config.plot_d4_power =          true;    % D4: Power vs pitch for rated power control
     config.plot_d5_deflection =     true;    % D5: Tower deflection profile plots
     config.plot_d5_mohr =           false;    % D5: Mohrs circle stress analysis
     config.plot_d5_goodman =        false;    % D5: Goodman diagram fatigue analysis
@@ -118,6 +118,12 @@ function config = createConfig() % USED FOR CHOOSING OUTPUT PLOTS
     % ============================================================================
     config.save_plots = true;          % Save all generated plots as PNG files
     config.parameters_path = 'Auxilary Information/Given Parameters/'; % Path to input data files
+    % Build absolute output directory path relative to project root
+    thisFilePath = mfilename('fullpath');
+    thisDir = fileparts(thisFilePath);                % .../MATLAB CodeBase
+    projectRoot = fileparts(thisDir);                 % .../Project2MEM
+    config.output_dir = fullfile(projectRoot, 'Report', 'Reports Working', 'media');
+    if ~exist(config.output_dir, 'dir'), mkdir(config.output_dir); end
     
     % ============================================================================
     % VISUAL STYLING
@@ -548,6 +554,14 @@ clc; close all;
 warning('off', 'all');
 
 % Execute the analysis when script is run
+% Set global plotting defaults
+set(groot, 'DefaultAxesFontName', 'Times New Roman', ...
+    'DefaultTextFontName', 'Times New Roman', ...
+    'DefaultLegendFontName', 'Times New Roman', ...
+    'DefaultAxesFontSize', 10.5, ...
+    'DefaultTextFontSize', 10.5, ...
+    'DefaultLegendFontSize', 10.5);
+ 
 runAllDeliverables();
 
 function runAllDeliverables()
@@ -587,7 +601,7 @@ function runAllDeliverables()
     % ============================================================================
     % DELIVERABLE 2: PITCH OPTIMIZATION
     % ============================================================================
-    % Finds optimal pitch angle for maximum power coefficient at fixed tip speed ratio
+    % Finds optimal pitch angle for maximum power coefficient
     % Uses BEM analysis to evaluate performance across pitch angle range
     if config.run_deliverable_2
         fprintf('Running Deliverable 2...\n');
@@ -1460,7 +1474,7 @@ function createTowerDeflectionPlot(deflection_results, ~, config)
     
     if ~config.plot_d5_deflection, return; end
     
-    figure(5); set(gcf, 'Position', [100, 100, 800, 400]);
+    figure(5); set(gcf, 'Position', [100, 100, 400, 150]);
     % Deflection-only plot (matches 4th subplot styling: units in mm)
     plot(deflection_results.z, deflection_results.case1.deflection*1000, [config.color_primary '-'], 'LineWidth', 2);
     hold on;
@@ -1470,7 +1484,8 @@ function createTowerDeflectionPlot(deflection_results, ~, config)
     xlim([0, max(deflection_results.z)]);
     
     if config.save_plots
-        saveas(gcf, 'Tower_Deflection_Only.png');
+        if ~exist(config.output_dir, 'dir'), mkdir(config.output_dir); end
+        saveas(gcf, fullfile(config.output_dir, 'Tower_Deflection_Only.png'));
         fprintf('Tower deflection plot saved as Tower_Deflection_Only.png\n');
     end
 end
@@ -1486,7 +1501,7 @@ function createMohrCirclePlots(stress_results, config)
     
     if ~config.plot_d5_mohr, return; end
     
-    figure(6); set(gcf, 'Position', [200, 200, 1200, 500]);
+    figure(6); set(gcf, 'Position', [100, 100, 409, 300]);
     
     subplot(1,2,1);
     plotMohrCircle(stress_results.case1.sigma_max, 0, 0, 'Load Case 1', config);
@@ -1495,7 +1510,8 @@ function createMohrCirclePlots(stress_results, config)
     plotMohrCircle(stress_results.case2.sigma_max, 0, 0, 'Load Case 2', config);
     
     if config.save_plots
-        saveas(gcf, 'Mohr_Circle_Analysis.png');
+        if ~exist(config.output_dir, 'dir'), mkdir(config.output_dir); end
+        saveas(gcf, fullfile(config.output_dir, 'Mohr_Circle_Analysis.png'));
         fprintf('Mohr circle plots saved as Mohr_Circle_Analysis.png\n');
     end
 end
@@ -1565,7 +1581,7 @@ function createGoodmanDiagram(stress_results, S_ut, S_y, ~, config)
     
     if ~config.plot_d5_goodman, return; end
     
-    figure(7); set(gcf, 'Position', [300, 300, 800, 600]);
+    figure(7); set(gcf, 'Position', [100, 100, 409, 300]);
     
     S_e = 0.5 * S_ut * 1.0 * 0.9 * 0.7;  % Modified endurance limit
     sigma_m = stress_results.sigma_mean; sigma_a = stress_results.sigma_alt;
@@ -1591,17 +1607,18 @@ function createGoodmanDiagram(stress_results, S_ut, S_y, ~, config)
     xlabel('Mean Stress (MPa)'); ylabel('Alternating Stress (MPa)');
     title('Goodman Diagram for Fatigue Analysis'); legend('Location', 'best'); grid on;
     
-    text(S_ut/1e6, S_e/1e6*0.1, 'S_{ut}', 'HorizontalAlignment', 'center', 'FontSize', 10, 'Color', config.color_primary);
-    text(S_e/1e6*0.1, S_e/1e6, 'S_e', 'HorizontalAlignment', 'center', 'FontSize', 10, 'Color', config.color_primary);
-    text(S_y/1e6, S_e/1e6*0.1, 'S_y', 'HorizontalAlignment', 'center', 'FontSize', 10, 'Color', config.color_accent);
-    text(S_e/1e6*0.1, S_y/1e6, 'S_y', 'HorizontalAlignment', 'center', 'FontSize', 10, 'Color', config.color_accent);
+    text(S_ut/1e6, S_e/1e6*0.1, 'S_{ut}', 'HorizontalAlignment', 'center', 'FontSize', 10.5, 'Color', config.color_primary);
+    text(S_e/1e6*0.1, S_e/1e6, 'S_e', 'HorizontalAlignment', 'center', 'FontSize', 10.5, 'Color', config.color_primary);
+    text(S_y/1e6, S_e/1e6*0.1, 'S_y', 'HorizontalAlignment', 'center', 'FontSize', 10.5, 'Color', config.color_accent);
+    text(S_e/1e6*0.1, S_y/1e6, 'S_y', 'HorizontalAlignment', 'center', 'FontSize', 10.5, 'Color', config.color_accent);
     
     n_fatigue = stress_results.fatigue_safety_factor;
     text(100, 125, sprintf('Safety Factor: %.2f', n_fatigue), ...
         'BackgroundColor', 'white', 'EdgeColor', 'black');
     
     if config.save_plots
-        saveas(gcf, 'Goodman_Diagram_Analysis.png');
+        if ~exist(config.output_dir, 'dir'), mkdir(config.output_dir); end
+        saveas(gcf, fullfile(config.output_dir, 'Goodman_Diagram_Analysis.png'));
         fprintf('Goodman diagram saved as Goodman_Diagram_Analysis.png\n');
     end
 end
@@ -1644,11 +1661,10 @@ function createTowerAnalysisPlots(deflection_results, load_cases, section_props,
     slope_case2 = diff(deflection_results.case2.deflection) / dz;
     z_slope = z(1:end-1) + dz/2;  % Slope at midpoints
     
-    % Figure 1: Load Distribution Cases
-    figure('Position', [100, 100, 800, 400]);
+    % Figure 1: Load Distribution Case 1 (single plot, wider)
+    figure('Position', [100, 100, 400, 150]);
     
-    % Plot 1: Load Distribution - Case 1 (Dual Y-axis)
-    subplot(2,1,1);
+    % Single-axes load distribution (Dual Y-axis)
     hold off; % Ensure clean state
     yyaxis left;
     plot(z, drag_force_1, [config.color_accent '-'], 'LineWidth', 2);
@@ -1668,98 +1684,70 @@ function createTowerAnalysisPlots(deflection_results, load_cases, section_props,
     ax.YAxis(2).Exponent = 3;     % exponent of 3
     ax.YAxis(2).TickLabelFormat = '%.0f';
     
-    title('Tower Analysis - Load Case 1');
-    grid on; xlim([0, total_height]);
+    title('Tower Analysis - Load Distribution');
+    grid on; xlim([0, total_height]); xlabel('Height (m)');
     yyaxis left; % Switch to left axis for vertical line
     ylim([0, max(drag_force_1)*1.1]); % Ensure left axis has correct limits
     plot([tower_height, tower_height], ylim, 'k:', 'LineWidth', 1);
     
-    % Plot 2: Load Distribution - Case 2 (Dual Y-axis)
-    subplot(2,1,2);
-    hold off; % Ensure clean state
-    yyaxis left;
-    plot(z, drag_force_2, 'g-', 'LineWidth', 2);
-    ylabel('Wind Drag (N/m)', 'Color', 'g');
-    ylim([0, max(drag_force_2)*1.1]);
-    hold on;
-    
-    yyaxis right;
-    plot(z, nacelle_load_2, 'r-', 'LineWidth', 2);
-    ylabel('Nacelle Load (N/m)', 'Color', 'r');
-    if max(nacelle_load_2) > 1000
-        ylim([0, max(nacelle_load_2)*1.1]);
-    else
-        ylim([0, 1000]); % Default scale if no nacelle load
-    end
-    ax = gca;
-    ax.YAxis(2).Exponent = 3;     % exponent of 3
-    ax.YAxis(2).TickLabelFormat = '%.0f';
-    
-    title('Tower Analysis - Load Case 2');
-    grid on; xlim([0, total_height]);
-    yyaxis left; % Switch to left axis for vertical line
-    ylim([0, max(drag_force_2)*1.1]); % Ensure left axis has correct limits
-    plot([tower_height, tower_height], ylim, 'k:', 'LineWidth', 1);
-    xlabel('Height (m)');
+    % (Removed second load plot for Case 2)
     
     % Save load distribution plot if enabled
     if config.save_plots
-        saveas(gcf, 'Tower_Load_Distribution.png');
+        if ~exist(config.output_dir, 'dir'), mkdir(config.output_dir); end
+        saveas(gcf, fullfile(config.output_dir, 'Tower_Load_Distribution.png'));
         fprintf('Tower load distribution plots saved as Tower_Load_Distribution.png\n');
     end
     
-    % Figure 2: Deflection-Related Plots
-    figure('Position', [200, 200, 800, 800]);
-    
-    % Plot 1: Shear Force Distribution - Both Cases
-    subplot(4,1,1);
+    % Figure 2a: Shear Force Distribution (Case 1 only)
+    figShear = figure('Position', [200, 200, 300, 100]);
     h1 = plot(z_shear, shear_case1/1000, [config.color_primary '-'], 'LineWidth', 2); hold on;
-    h2 = plot(z_shear, shear_case2/1000, [config.color_secondary '--'], 'LineWidth', 2);
     ylabel('Shear (kN)'); 
     title('Shear Force Distribution');
     grid on; xlim([0, total_height]);
     plot([tower_height, tower_height], ylim, 'k:', 'LineWidth', 1);
     plot([0, total_height], [0, 0], 'k--', 'LineWidth', 0.5);
-    legend([h1, h2], {'Case 1', 'Case 2'}, 'Location', 'west');
-    
-    % Plot 2: Bending Moment Distribution - Both Cases
-    subplot(4,1,2);
+
+    % Figure 2b: Bending Moment Distribution (Case 1 only)
+    figMoment = figure('Position', [220, 220, 300, 100]);
     h1 = plot(z, deflection_results.case1.moment/1e6, [config.color_primary '-'], 'LineWidth', 2); hold on;
-    h2 = plot(z, deflection_results.case2.moment/1e6, [config.color_secondary '--'], 'LineWidth', 2);
     ylabel('Moment (MN·m)'); 
     title('Bending Moment Distribution');
     grid on; xlim([0, total_height]);
     plot([tower_height, tower_height], ylim, 'k:', 'LineWidth', 1);
     plot([0, total_height], [0, 0], 'k--', 'LineWidth', 0.5);
-    legend([h1, h2], {'Case 1', 'Case 2'}, 'Location', 'west');
-    
-    % Plot 3: Slope Distribution - Both Cases
-    subplot(4,1,3);
+
+    % Figure 2c: Slope Distribution (Case 1 only)
+    figSlope = figure('Position', [240, 240, 300, 100]);
     h1 = plot(z_slope, slope_case1*1000, [config.color_primary '-'], 'LineWidth', 2); hold on;
-    h2 = plot(z_slope, slope_case2*1000, [config.color_secondary '--'], 'LineWidth', 2);
     ylabel('Slope (mrad)'); 
     title('Tower Slope Distribution');
     grid on; xlim([0, total_height]);
     plot([tower_height, tower_height], ylim, 'k:', 'LineWidth', 1);
     plot([0, total_height], [0, 0], 'k--', 'LineWidth', 0.5);
-    legend([h1, h2], {'Case 1', 'Case 2'}, 'Location', 'west');
-    
-    % Plot 4: Deflection Distribution - Both Cases
-    subplot(4,1,4);
+
+    % Figure 2d: Deflection Distribution (Case 1 only)
+    figDeflection = figure('Position', [260, 260, 300, 100]);
     h1 = plot(z, deflection_results.case1.deflection*1000, [config.color_primary '-'], 'LineWidth', 2); hold on;
-    h2 = plot(z, deflection_results.case2.deflection*1000, [config.color_secondary '--'], 'LineWidth', 2);
     xlabel('Height (m)'); ylabel('Deflection (mm)'); 
     title('Tower Deflection Distribution');
     grid on; xlim([0, total_height]);
     plot([tower_height, tower_height], ylim, 'k:', 'LineWidth', 1);
     plot([0, total_height], [0, 0], 'k--', 'LineWidth', 0.5);
-    legend([h1, h2], {'Case 1', 'Case 2'}, 'Location', 'west');
     
     
-    % Save deflection-related plots if enabled
+    % Save deflection-related plots if enabled (multiple figures)
     if config.save_plots
-        saveas(gcf, 'Tower_Deflection_Analysis.png');
-        fprintf('Tower deflection analysis plots saved as Tower_Deflection_Analysis.png\n');
+        try
+            if ~exist(config.output_dir, 'dir'), mkdir(config.output_dir); end
+            saveas(figShear, fullfile(config.output_dir, 'Shear_Distribution.png'));
+            saveas(figMoment, fullfile(config.output_dir, 'Bending_Moment_Distribution.png'));
+            saveas(figSlope, fullfile(config.output_dir, 'Slope_Distribution.png'));
+            saveas(figDeflection, fullfile(config.output_dir, 'Tower_Deflection_Analysis.png'));
+            fprintf('Saved: Shear_Distribution.png, Bending_Moment_Distribution.png, Slope_Distribution.png, Tower_Deflection_Analysis.png\n');
+        catch ME
+            warning(ME.identifier, '%s', ME.message);
+        end
     end
 end
 
@@ -1783,37 +1771,37 @@ function createVisualization(r_stations, dCP, dCT, CP, CT, ~, ~, ~, config)
         return;
     end
     
-    figure(1); set(gcf, 'Position', [100, 100, 1000, 400]);
+    figure(1); set(gcf, 'Position', [100, 100, 818, 300]);
     
     if ~isempty(dCP) && ~isempty(dCT)
         % Left plot: Power coefficient distribution with CP and CT values
         subplot(1, 2, 1);
-        area(r_stations, dCP, 'FaceColor', 'blue', 'FaceAlpha', 0.3, 'EdgeColor', 'blue', 'LineWidth', 3);
-        xlabel('Radius [m]', 'FontSize', 20, 'FontWeight', 'bold');
-        ylabel('Local C_P (per unit area)', 'FontSize', 20, 'FontWeight', 'bold');
-        title('Local Power Coefficient Distribution', 'FontSize', 22, 'FontWeight', 'bold');
+        area(r_stations, dCP, 'FaceColor', 'blue', 'FaceAlpha', 0.3, 'EdgeColor', 'blue', 'LineWidth', 2);
+        xlabel('Radius [m]');
+        ylabel('Local C_P (per unit area)');
+        title('Local Power Coefficient Distribution');
         % Format y-axis to avoid scientific notation
-        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.4f'), 'FontSize', 18, 'FontWeight', 'bold', 'LineWidth', 2);
+        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.4f'));
         grid on;
         
         % Add CP value to the power coefficient plot
         text(0.05, 0.75, sprintf('C_P = %.4f', CP), 'Units', 'normalized', ...
-            'FontSize', 18, 'FontWeight', 'bold', 'Color', 'blue', ...
+            'FontSize', 10.5, 'FontWeight', 'bold', 'Color', 'blue', ...
             'BackgroundColor', 'white', 'EdgeColor', 'blue');
         
         % Right plot: Thrust coefficient distribution
         subplot(1, 2, 2);
-        area(r_stations, dCT, 'FaceColor', 'red', 'FaceAlpha', 0.3, 'EdgeColor', 'red', 'LineWidth', 3);
-        xlabel('Radius [m]', 'FontSize', 20, 'FontWeight', 'bold');
-        ylabel('Local C_T (per unit area)', 'FontSize', 20, 'FontWeight', 'bold');
-        title('Local Thrust Coefficient Distribution', 'FontSize', 22, 'FontWeight', 'bold');
+        area(r_stations, dCT, 'FaceColor', 'red', 'FaceAlpha', 0.3, 'EdgeColor', 'red', 'LineWidth', 2);
+        xlabel('Radius [m]');
+        ylabel('Local C_T (per unit area)');
+        title('Local Thrust Coefficient Distribution');
         % Format y-axis to avoid scientific notation
-        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.4f'), 'FontSize', 18, 'FontWeight', 'bold', 'LineWidth', 2);
+        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.4f'));
         grid on;
         
         % Add CT value to the thrust coefficient plot
         text(0.05, 0.75, sprintf('C_T = %.4f', CT), 'Units', 'normalized', ...
-            'FontSize', 18, 'FontWeight', 'bold', 'Color', 'red', ...
+            'FontSize', 10.5, 'FontWeight', 'bold', 'Color', 'red', ...
             'BackgroundColor', 'white', 'EdgeColor', 'red');
         
     else
@@ -1821,124 +1809,191 @@ function createVisualization(r_stations, dCP, dCT, CP, CT, ~, ~, ~, config)
         subplot(1, 2, 1);
         a_range = 0:0.01:0.5;
         CP_theory = 4*a_range.*(1-a_range).^2;
-        plot(a_range, CP_theory, [config.color_primary '-'], 'LineWidth', 3);
-        xlabel('Axial Induction Factor (a)', 'FontSize', 20, 'FontWeight', 'bold');
-        ylabel('Power Coefficient (C_P)', 'FontSize', 20, 'FontWeight', 'bold');
-        title('Theoretical C_P vs Axial Induction Factor', 'FontSize', 22, 'FontWeight', 'bold');
-        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.3f'), 'FontSize', 18, 'FontWeight', 'bold', 'LineWidth', 2);
+        plot(a_range, CP_theory, [config.color_primary '-'], 'LineWidth', 2);
+        xlabel('Axial Induction Factor (a)');
+        ylabel('Power Coefficient (C_P)');
+        title('Theoretical C_P vs Axial Induction Factor');
+        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.3f'));
         grid on;
         
         subplot(1, 2, 2);
         CT_theory = 4*a_range.*(1-a_range);
-        plot(a_range, CT_theory, 'r-', 'LineWidth', 3);
-        xlabel('Axial Induction Factor (a)', 'FontSize', 20, 'FontWeight', 'bold');
-        ylabel('Thrust Coefficient (C_T)', 'FontSize', 20, 'FontWeight', 'bold');
-        title('Theoretical C_T vs Axial Induction Factor', 'FontSize', 22, 'FontWeight', 'bold');
-        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.3f'), 'FontSize', 18, 'FontWeight', 'bold', 'LineWidth', 2);
+        plot(a_range, CT_theory, 'r-', 'LineWidth', 2);
+        xlabel('Axial Induction Factor (a)');
+        ylabel('Thrust Coefficient (C_T)');
+        title('Theoretical C_T vs Axial Induction Factor');
+        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.3f'));
         grid on;
     end
     
-    sgtitle('Wind Turbine Analysis - Deliverable 1', 'FontSize', 26, 'FontWeight', 'bold');
+    sgtitle('Wind Turbine Analysis - Deliverable 1', 'FontSize', 10.5, 'FontWeight', 'bold');
     
     % Save plot if enabled
     if config.save_plots
-        saveas(gcf, 'Deliverable1_Results.png');
+        if ~exist(config.output_dir, 'dir'), mkdir(config.output_dir); end
+        saveas(gcf, fullfile(config.output_dir, 'Deliverable1_Results.png'));
         fprintf('Results visualization saved as Deliverable1_Results.png\n');
     end
 end
 
 function createPitchOptimizationPlot(pitch_range, CP_values, CT_values, optimal_pitch, CP_max, V_wind, lambda, config)
 % CREATEPITCHOPTIMIZATIONPLOT Create visualization of CP and CT vs Pitch Angle
-% Generates comprehensive plots showing power and thrust coefficients versus pitch angle with optimal point highlighting and dual y-axis formatting.
-% Inputs as before...
+% Generates comprehensive plots showing power and thrust coefficients versus
+% pitch angle with optimal point highlighting and dual y-axis formatting.
+%
+% Inputs:
+%   pitch_range  - Array of pitch angles [degrees]
+%   CP_values    - Power coefficient values
+%   CT_values    - Thrust coefficient values
+%   optimal_pitch - Optimal pitch angle [degrees]
+%   CP_max       - Maximum power coefficient
+%   V_wind       - Wind speed [m/s]
+%   lambda       - Tip speed ratio
+%   config       - Configuration structure
+    
     if ~config.plot_d2_optimization, return; end
-    figure(2); set(gcf, 'Position', [100, 100, 1000, 700]);
+    
+    figure(2); set(gcf, 'Position', [100, 100, 477, 350]);
+    
     yyaxis left;
-    plot(pitch_range, CP_values, [config.color_primary '-o'], 'LineWidth', 3, 'MarkerSize', 12);
-    ylabel('Coefficient of Power (C_P)', 'FontSize', 20, 'FontWeight','bold'); ylim_left = ylim;
-    set(gca, 'FontSize', 18, 'LineWidth', 2, 'FontWeight','bold');
+    plot(pitch_range, CP_values, [config.color_primary '-o'], 'LineWidth', 2, 'MarkerSize', 3);
+    ylabel('Coefficient of Power (C_P)'); ylim_left = ylim;
+    
     yyaxis right;
-    plot(pitch_range, CT_values, [config.color_secondary '-x'], 'LineWidth', 3, 'MarkerSize', 12);
-    ylabel('Coefficient of Thrust (C_T)', 'FontSize', 20, 'FontWeight','bold'); ylim_right = ylim;
-    set(gca, 'FontSize', 18, 'LineWidth', 2, 'FontWeight','bold');
+    plot(pitch_range, CT_values, [config.color_secondary '-x'], 'LineWidth', 2, 'MarkerSize', 3);
+    ylabel('Coefficient of Thrust (C_T)'); ylim_right = ylim;
+    
     ylim_combined = [min(ylim_left(1), ylim_right(1)), max(ylim_left(2), ylim_right(2))];
     yyaxis left; ylim(ylim_combined);
     yyaxis right; ylim(ylim_combined);
+    
     [~, optimal_idx] = min(abs(pitch_range - optimal_pitch));
     CT_at_optimal = CT_values(optimal_idx);
+    
     hold on;
-    xline(optimal_pitch, 'k--', 'LineWidth', 3, 'DisplayName', sprintf('Optimal \\theta = %.1f°', optimal_pitch));
-    plot(optimal_pitch, CP_max, 'go', 'MarkerSize', 18, 'LineWidth', 3, 'DisplayName', sprintf('Max C_P = %.4f', CP_max));
+    xline(optimal_pitch, 'k--', 'LineWidth', 2, 'DisplayName', sprintf('Optimal \\theta = %.1f°', optimal_pitch));
+    plot(optimal_pitch, CP_max, 'go', 'MarkerSize', 7, 'LineWidth', 2, 'DisplayName', sprintf('Max C_P = %.4f', CP_max));
+    
     yyaxis left;
-    text(optimal_pitch + 0.5, CP_max + 0.075, sprintf('C_P = %.4f', CP_max), 'FontSize', 18, 'FontWeight', 'bold', 'Color', 'blue', 'BackgroundColor', 'white');
+    text(optimal_pitch - 7, CP_max + 0.075, sprintf('C_P = %.4f', CP_max), 'FontSize', 10.5, 'FontWeight', 'bold', 'Color', 'blue', 'BackgroundColor', 'white');
+    
     yyaxis right;
-    text(optimal_pitch + 0.5, CT_at_optimal + 0.075, sprintf('C_T = %.4f', CT_at_optimal), 'FontSize', 18, 'FontWeight', 'bold', 'Color', 'red', 'BackgroundColor', 'white');
+    text(optimal_pitch + 0.5, CT_at_optimal + 0.075, sprintf('C_T = %.4f', CT_at_optimal), 'FontSize', 10.5, 'FontWeight', 'bold', 'Color', 'red', 'BackgroundColor', 'white');
+    
     hold off;
-    xlabel('Pitch Angle (degrees)', 'FontSize', 20, 'FontWeight','bold');
-    title(sprintf('Wind Turbine Pitch Optimization (V = %.1f m/s, \\lambda = %.1f)', V_wind, lambda), 'FontSize', 24, 'FontWeight','bold');
-    legend('C_P', 'C_T', sprintf('Optimal \\beta = %.1f°', optimal_pitch), 'Optimal C_P', 'Location', 'best', 'FontSize', 18, 'FontWeight','bold');
-    grid on; set(gca,'LineWidth',2);
+    xlabel('Pitch Angle (degrees)');
+    title(sprintf('Wind Turbine Pitch Optimization (V = %.1f m/s, \\lambda = %.1f)', V_wind, lambda));
+    legend('C_P', 'C_T', sprintf('Optimal \\beta = %.1f°', optimal_pitch), 'Optimal C_P', 'Location', 'south'); grid on;
+    
     if config.save_plots
-        saveas(gcf, 'Pitch_Optimization_Results.png');
+        if ~exist(config.output_dir, 'dir'), mkdir(config.output_dir); end
+        saveas(gcf, fullfile(config.output_dir, 'Pitch_Optimization_Results.png'));
         fprintf('Pitch optimization results visualization saved as Pitch_Optimization_Results.png\n');
     end
 end
 
 function create3DOptimizationPlot(lambda_range, pitch_range, CP_matrix, optimal_lambda, optimal_pitch, CP_max, V_wind, config)
 % CREATE3DOPTIMIZATIONPLOT Create 3D visualization of CP optimization
-% ... Inputs as before ...
+% Generates a 3D surface plot showing power coefficient versus tip speed ratio
+% and pitch angle with optimal operating point highlighting.
+%
+% Inputs:
+%   lambda_range   - Array of tip speed ratios
+%   pitch_range    - Array of pitch angles [degrees]
+%   CP_matrix      - Power coefficient matrix [lambda x pitch]
+%   optimal_lambda - Optimal tip speed ratio
+%   optimal_pitch  - Optimal pitch angle [degrees]
+%   CP_max         - Maximum power coefficient
+%   V_wind         - Wind speed [m/s]
+%   config         - Configuration structure
+    
     if ~config.plot_d3_optimization
         return;
     end
-    figure(3); set(gcf, 'Position', [100, 100, 800, 600]);
+    
+    figure(3); set(gcf, 'Position', [100, 100, 600, 450]);
+    
+    % Create meshgrid for 3D plotting (flipped axes)
     [PITCH, LAMBDA] = meshgrid(pitch_range, lambda_range);
-    surf(PITCH, LAMBDA, CP_matrix');
-    xlabel('Pitch Angle (degrees)', 'FontSize', 20, 'FontWeight','bold');
-    ylabel('Tip Speed Ratio (λ)', 'FontSize', 20, 'FontWeight','bold');
-    zlabel('Power Coefficient (C_P)', 'FontSize', 20, 'FontWeight','bold');
-    title(sprintf('Wind Turbine 3D Performance Optimization (V = %.1f m/s)', V_wind), 'FontSize', 24, 'FontWeight','bold');
-    set(gca, 'FontSize', 18, 'LineWidth', 2, 'FontWeight','bold');
+    
+    % 3D surface plot (flipped axes)
+    surf(PITCH, LAMBDA, CP_matrix');%'
+    xlabel('Pitch Angle (degrees)');
+    ylabel('Tip Speed Ratio (\lambda)');
+    zlabel('Power Coefficient (C_P)');
+    title(sprintf('Wind Turbine 3D Performance Optimization (V = %.1f m/s)', V_wind)); %
     shading interp;
-    colorbar('FontSize',18, 'FontWeight','bold', 'LineWidth', 2);
+    colorbar;
+    
+    % Highlight optimal point and add Betz limit plane
     hold on;
-    plot3(optimal_pitch, optimal_lambda, CP_max, 'ro', 'MarkerSize', 18, 'LineWidth', 3, 'MarkerFaceColor', 'red');
-    betz_limit = 0.593;
+    plot3(optimal_pitch, optimal_lambda, CP_max, 'ro', 'MarkerSize', 12, 'LineWidth', 3, 'MarkerFaceColor', 'red');
+    
+    % Add Betz limit plane (red and translucent)
+    betz_limit = 0.593;  % Theoretical maximum power coefficient
     [PITCH_betz, LAMBDA_betz] = meshgrid(pitch_range, lambda_range);
     CP_betz = betz_limit * ones(size(PITCH_betz));
     surf(PITCH_betz, LAMBDA_betz, CP_betz, 'FaceColor', 'red', 'FaceAlpha', 0.3, 'EdgeColor', 'none');
+    
+    % Add text annotation for optimal point (moved vertically by +0.75, pitch axis by +5)
     text(optimal_pitch + 5, optimal_lambda, CP_max + 0.05, ...
         sprintf('Max C_P = %.4f\nλ = %.3f\nθ = %.1f°', CP_max, optimal_lambda, optimal_pitch), ...
-        'FontSize', 18, 'FontWeight', 'bold', 'Color', 'red', 'BackgroundColor', 'white');
+        'FontSize', 10.5, 'FontWeight', 'bold', 'Color', 'red', ...
+        'BackgroundColor', 'white', 'EdgeColor', 'red');
+    
+    % Add text annotation for Betz limit
     text(pitch_range(end) - 10, lambda_range(end) - 1, betz_limit + 0.25, ...
         sprintf('Betz Limit = %.3f', betz_limit), ...
-        'FontSize', 18, 'FontWeight', 'bold', 'Color', 'red', 'BackgroundColor', 'white');
+        'FontSize', 10.5, 'FontWeight', 'bold', 'Color', 'red', ...
+        'BackgroundColor', 'white', 'EdgeColor', 'red');
+    
     hold off;
-    xlim([min(pitch_range)*0.85, max(pitch_range)*0.65]);
-    ylim([min(lambda_range), max(lambda_range)]);
-    zlim([-0.5, max(max(CP_matrix)) + 0.1]);
+    
+    % Set axis limits for better visualization
+    xlim([min(pitch_range)*0.85, max(pitch_range)*0.65]);  % X-axis: pitch angle range
+    ylim([min(lambda_range), max(lambda_range)]); % Y-axis: tip speed ratio range
+    zlim([-0.5, max(max(CP_matrix)) + 0.1]);     % Z-axis: CP values > -0.5
+    
+    % Improve view angle
     view(30, 20);
+    
+    % Save plot if enabled
     if config.save_plots
-        saveas(gcf, '2D_CP_Optimization_Results.png');
+        if ~exist(config.output_dir, 'dir'), mkdir(config.output_dir); end
+        saveas(gcf, fullfile(config.output_dir, '2D_CP_Optimization_Results.png'));
         fprintf('3D optimization results visualization saved as 2D_CP_Optimization_Results.png\n');
     end
 end
 
 function createPowerPitchPlot(pitch_range, P_pitch, pitch_req, P_req, ratedPower, V_wind, config)
 % CREATEPOWERPITCHPLOT Create visualization of power vs pitch angle
+% Generates plot showing power output versus pitch angle with rated power
+% constraint and optimal operating point highlighting.
+%
+% Inputs:
+%   pitch_range  - Array of pitch angles [degrees]
+%   P_pitch      - Power output at each pitch angle [W]
+%   pitch_req    - Required pitch angle [degrees]
+%   P_req        - Power at required pitch angle [W]
+%   ratedPower   - Rated power limit [W]
+%   V_wind       - Wind speed [m/s]
+%   config       - Configuration structure
+    
     if ~config.plot_d4_power, return; end
-    figure(4); set(gcf, 'Position', [100, 100, 600, 500]);
-    plot(pitch_range, P_pitch/1e3, [config.color_primary '-'], 'LineWidth', 3); hold on;
-    yline(ratedPower/1e3, 'r--', 'Rated', 'LineWidth', 3, 'FontSize', 18, 'FontWeight','bold');
-    plot(pitch_req, P_req/1e3, 'ko', 'MarkerSize', 14, 'LineWidth', 3);
+    
+    figure(4); set(gcf, 'Position', [100, 100, 400, 200]);
+    plot(pitch_range, P_pitch/1e3, [config.color_primary '-'], 'LineWidth', 2); hold on;
+    yline(ratedPower/1e3, 'r--', 'Rated');
+    plot(pitch_req, P_req/1e3, 'ko', 'MarkerSize', 8, 'LineWidth', 2);
     text(pitch_req + 0.5, 2750, sprintf('Pitch: %.1f°', pitch_req), ...
-        'FontSize', 18, 'FontWeight', 'bold', 'Color', 'black', ...
+        'FontSize', 10.5, 'FontWeight', 'bold', 'Color', 'black', ...
         'BackgroundColor', 'white', 'EdgeColor', 'black');
-    xlabel('Pitch (deg)', 'FontSize', 20, 'FontWeight','bold'); ylabel('Power (kW)', 'FontSize', 20, 'FontWeight','bold');
-    title(sprintf('Power vs Pitch (V = %.1f m/s)', V_wind), 'FontSize', 24, 'FontWeight','bold');
-    grid on; set(gca, 'FontSize', 18, 'LineWidth', 2, 'FontWeight','bold');
-    legend({'Power','Rated Power','Operating Point'}, 'FontSize', 18, 'FontWeight','bold', 'Location','best');
+    xlabel('Pitch (deg)'); ylabel('Power (kW)'); 
+    title(sprintf('Power vs Pitch (V = %.1f m/s)', V_wind)); grid on;
+    
     if config.save_plots
-        saveas(gcf, 'Deliverable4_Power_vs_Pitch.png');
+        if ~exist(config.output_dir, 'dir'), mkdir(config.output_dir); end
+        saveas(gcf, fullfile(config.output_dir, 'Deliverable4_Power_vs_Pitch.png'));
         fprintf('Power vs Pitch plot saved as Deliverable4_Power_vs_Pitch.png\n');
     end
 end

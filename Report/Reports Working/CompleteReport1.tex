@@ -15,7 +15,7 @@
 
 % Metadata
 \title{Aerodynamic and Structural Analysis of the Clipper Liberty C96 Wind Turbine}
-\author{Peyton Lettau}
+\author{Evan Hobday, Peyton Lettau, Jordan Nguyen}
 \date{\today}
 
 \begin{document}
@@ -34,7 +34,7 @@ This report presents a comprehensive aerodynamic and structural analysis of the 
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.7\textwidth]{../../PNGS/UMN turbine.jpg}
+  \includegraphics[width=0.7\textwidth]{media/UMN\space Turbine.jpg}
   \caption{The University of Minnesota Clipper Liberty C96 wind turbine}
   \label{fig:umn_turbine_photo}
 \end{figure}
@@ -256,7 +256,7 @@ Three static failure theories are applied to assess the tower's structural integ
 
 \subsubsection*{Maximum Shear Stress Theory (Tresca)}
 \begin{equation}
- n_{\text{MSST}} = \frac{S_y}{\sigma_\text{max}}
+ n_{\text{MSST}} = \frac{S_y/2}{\sigma_\text{max}/2}
 \label{eq:msst}
 \end{equation}
 
@@ -317,7 +317,7 @@ A one-dimensional optimization was performed to determine the optimal pitch angl
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.7\textwidth]{../../PNGS/Pitch_Optimization_Results.png}
+  \includegraphics[width=0.5\textwidth]{media/Pitch_Optimization_Results.png}
   \caption{Coefficient of power and thrust as a function of pitch angle for wind speed of 8 m/s.}
   \label{fig:cp_ct_vs_pitch}
 \end{figure}
@@ -332,7 +332,7 @@ A comprehensive two-dimensional optimization was performed to simultaneously opt
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.7\textwidth]{../../PNGS/2D_CP_Optimization_Results.png}
+  \includegraphics[width=0.6\textwidth]{media/2D_CP_Optimization_Results.png}
   \caption{Two-dimensional optimization results showing coefficient of power as a function of pitch angle and tip speed ratio for wind speed of 6 m/s.}
   \label{fig:cp_2d}
 \end{figure}
@@ -346,7 +346,7 @@ For higher wind speed conditions (14.6 m/s), the analysis determined the minimum
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.7\textwidth]{../../PNGS/Deliverable4_Power_vs_Pitch.png}
+  \includegraphics[width=0.5\textwidth]{media/Deliverable4_Power_vs_Pitch.png}
   \caption{Power vs. pitch angle at high wind speed with rated power line.}
   \label{fig:power_vs_pitch}
 \end{figure}
@@ -365,28 +365,58 @@ The tower deflection analysis employed Euler-Bernoulli beam theory to model the 
 The results showed a maximum tower deflection of $\approx 0.383$ meters, which represents $\approx 0.25\%$ of the total tower height. This deflection is well within acceptable limits for wind turbine tower design and occurs entirely within the elastic deformation range, ensuring no permanent damage to the structure.
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.7\textwidth]{../../PNGS/Tower_Load_Distribution.png}
-  \caption{Distributed wind drag and nacelle load along height for both load cases.}
-  \label{fig:tower_load_distribution}
-\end{figure}
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.7\textwidth]{../../PNGS/Tower_Deflection_Only.png}
-  \caption{Tower deflection under loading conditions, showing displacement along the height of the tower.}
-  \label{fig:tower_deflection}
+  \begin{minipage}{0.49\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{media/Tower_Load_Distribution.png}
+    \captionof{figure}{Distributed wind drag and nacelle load along height for both load cases.}
+    \label{fig:tower_load_distribution}
+  \end{minipage}
+  \hfill
+  \begin{minipage}{0.49\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{media/Tower_Deflection_Only.png}
+    \captionof{figure}{Tower deflection under loading conditions, showing displacement along the height of the tower.}
+    \label{fig:tower_deflection}
+  \end{minipage}
 \end{figure}
 
 
 \subsubsection{Static Failure Analysis}
 
-The static failure analysis evaluated the tower's structural integrity under maximum loading conditions using three established failure theories. The analysis focused on the maximum bending stress at the tower base, where the bending moment reaches its peak value as seen in Figure \ref{fig:tower_deflection_analysis}.
+The static failure analysis evaluated the tower's structural integrity under maximum loading conditions using three established failure theories. The analysis focused on the maximum bending stress at the tower base, where the bending moment reaches its peak value as seen in Figure \ref{fig:tower_moment_distribution}.
 
-\begin{figure}[H]
+\begin{figure}[h]
   \centering
-  \includegraphics[width=0.7\textwidth]{../../PNGS/Tower_Deflection_Analysis.png}
-  \caption{Tower shear, moment, slope, and deflection for both load cases.}
-  \label{fig:tower_deflection_analysis}
+  \begin{minipage}{0.49\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{media/Shear_Distribution.png}
+    \captionof{figure}{Shear force distribution.}
+    \label{fig:tower_shear_distribution}
+  \end{minipage}
+  \hfill
+  \begin{minipage}{0.49\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{media/Bending_Moment_Distribution.png}
+    \captionof{figure}{Bending moment distribution.}
+    \label{fig:tower_moment_distribution}
+  \end{minipage}
+  \\
+  \vspace{0.5em}
+  \begin{minipage}{0.49\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{media/Slope_Distribution.png}
+    \captionof{figure}{Slope distribution.}
+    \label{fig:tower_slope_distribution}
+  \end{minipage}
+  \hfill
+  \begin{minipage}{0.49\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{media/Tower_Deflection_Analysis.png}
+    \captionof{figure}{Deflection distribution.}
+    \label{fig:tower_deflection_distribution}
+  \end{minipage}
 \end{figure}
+
 
 Using a yield strength of 345 MPa, the safety factors were calculated for all three failure theories:
 \begin{itemize}
@@ -406,7 +436,7 @@ This safety factor significantly exceeds the recommended minimum of 2.0 for wind
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.7\textwidth]{../../PNGS/Goodman_Diagram_Analysis.png}
+  \includegraphics[width=0.5\textwidth]{media/Goodman_Diagram_Analysis.png}
   \caption{Goodman diagram showing fatigue loading case with mean and alternating stress components.}
   \label{fig:goodman}
 \end{figure} 

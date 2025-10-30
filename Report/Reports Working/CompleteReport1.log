@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.3.8)  29 OCT 2025 21:34
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.3.8)  30 OCT 2025 11:44
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -498,18 +498,18 @@ LaTeX Font Info:    Trying to load font information for U+msb on input line 24.
 (/usr/local/texlive/2025/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
-<../../PNGS/UMN turbine.jpg, id=132, 4304.08pt x 3228.06pt>
-File: ../../PNGS/UMN turbine.jpg Graphic file (type jpg)
-<use ../../PNGS/UMN turbine.jpg>
-Package pdftex.def Info: ../../PNGS/UMN turbine.jpg  used on input line 37.
+<media/UMN Turbine.jpg, id=132, 4304.08pt x 3228.06pt>
+File: media/UMN Turbine.jpg Graphic file (type jpg)
+<use media/UMN Turbine.jpg>
+Package pdftex.def Info: media/UMN Turbine.jpg  used on input line 37.
 (pdftex.def)             Requested size: 328.82707pt x 246.57637pt.
 
 (./CompleteReport1.toc
 
 [1
 
-{/usr/local/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map} <../../P
-NGS/UMN turbine.jpg>])
+{/usr/local/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map} <./media
+/UMN Turbine.jpg>])
 \tf@toc=\write4
 \openout4 = `CompleteReport1.toc'.
 
@@ -526,89 +526,98 @@ NGS/UMN turbine.jpg>])
 [6]
 
 [7]
-<../../PNGS/Pitch_Optimization_Results.png, id=249, 753.0534pt x 527.0892pt>
-File: ../../PNGS/Pitch_Optimization_Results.png Graphic file (type png)
-<use ../../PNGS/Pitch_Optimization_Results.png>
-Package pdftex.def Info: ../../PNGS/Pitch_Optimization_Results.png  used on inp
-ut line 320.
-(pdftex.def)             Requested size: 328.82707pt x 230.15862pt.
+<media/Pitch_Optimization_Results.png, id=249, 359.4228pt x 263.5446pt>
+File: media/Pitch_Optimization_Results.png Graphic file (type png)
+<use media/Pitch_Optimization_Results.png>
+Package pdftex.def Info: media/Pitch_Optimization_Results.png  used on input li
+ne 320.
+(pdftex.def)             Requested size: 234.8775pt x 172.21883pt.
 
 
 [8{/usr/local/texlive/2025/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.enc
 }]
-<../../PNGS/2D_CP_Optimization_Results.png, id=263, 602.25pt x 451.9284pt>
-File: ../../PNGS/2D_CP_Optimization_Results.png Graphic file (type png)
-<use ../../PNGS/2D_CP_Optimization_Results.png>
-Package pdftex.def Info: ../../PNGS/2D_CP_Optimization_Results.png  used on inp
-ut line 335.
-(pdftex.def)             Requested size: 328.82707pt x 246.76157pt.
+<media/2D_CP_Optimization_Results.png, id=263, 451.9284pt x 339.1872pt>
+File: media/2D_CP_Optimization_Results.png Graphic file (type png)
+<use media/2D_CP_Optimization_Results.png>
+Package pdftex.def Info: media/2D_CP_Optimization_Results.png  used on input li
+ne 335.
+(pdftex.def)             Requested size: 281.85587pt x 211.55154pt.
 
 
-[9 <../../PNGS/Pitch_Optimization_Results.png (PNG copy)>]
-<../../PNGS/Deliverable4_Power_vs_Pitch.png, id=270, 451.9284pt x 376.7676pt>
-File: ../../PNGS/Deliverable4_Power_vs_Pitch.png Graphic file (type png)
-<use ../../PNGS/Deliverable4_Power_vs_Pitch.png>
-Package pdftex.def Info: ../../PNGS/Deliverable4_Power_vs_Pitch.png  used on in
-put line 349.
-(pdftex.def)             Requested size: 328.82707pt x 274.14696pt.
+[9 <./media/Pitch_Optimization_Results.png (PNG copy)> <./media/2D_CP_Optimizat
+ion_Results.png (PNG copy)>]
+<media/Deliverable4_Power_vs_Pitch.png, id=270, 301.125pt x 150.8034pt>
+File: media/Deliverable4_Power_vs_Pitch.png Graphic file (type png)
+<use media/Deliverable4_Power_vs_Pitch.png>
+Package pdftex.def Info: media/Deliverable4_Power_vs_Pitch.png  used on input l
+ine 349.
+(pdftex.def)             Requested size: 234.8775pt x 117.63077pt.
+<media/Tower_Load_Distribution.png, id=271, 301.125pt x 113.223pt>
+File: media/Tower_Load_Distribution.png Graphic file (type png)
+<use media/Tower_Load_Distribution.png>
+Package pdftex.def Info: media/Tower_Load_Distribution.png  used on input line 
+370.
+(pdftex.def)             Requested size: 230.18253pt x 86.55138pt.
+<media/Tower_Deflection_Only.png, id=272, 301.125pt x 113.223pt>
+File: media/Tower_Deflection_Only.png Graphic file (type png)
+<use media/Tower_Deflection_Only.png>
+Package pdftex.def Info: media/Tower_Deflection_Only.png  used on input line 37
+7.
+(pdftex.def)             Requested size: 230.18253pt x 86.55138pt.
 
 
-[10 <../../PNGS/2D_CP_Optimization_Results.png (PNG copy)>]
-<../../PNGS/Tower_Load_Distribution.png, id=277, 602.25pt x 301.125pt>
-File: ../../PNGS/Tower_Load_Distribution.png Graphic file (type png)
-<use ../../PNGS/Tower_Load_Distribution.png>
-Package pdftex.def Info: ../../PNGS/Tower_Load_Distribution.png  used on input 
-line 368.
-(pdftex.def)             Requested size: 328.82707pt x 164.42001pt.
-<../../PNGS/Tower_Deflection_Only.png, id=278, 602.25pt x 301.125pt>
-File: ../../PNGS/Tower_Deflection_Only.png Graphic file (type png)
-<use ../../PNGS/Tower_Deflection_Only.png>
-Package pdftex.def Info: ../../PNGS/Tower_Deflection_Only.png  used on input li
-ne 374.
-(pdftex.def)             Requested size: 328.82707pt x 164.42001pt.
+[10 <./media/Deliverable4_Power_vs_Pitch.png (PNG copy)>]
+<media/Shear_Distribution.png, id=280, 225.9642pt x 75.6426pt>
+File: media/Shear_Distribution.png Graphic file (type png)
+<use media/Shear_Distribution.png>
+Package pdftex.def Info: media/Shear_Distribution.png  used on input line 392.
+(pdftex.def)             Requested size: 230.18253pt x 77.05745pt.
+<media/Bending_Moment_Distribution.png, id=281, 225.9642pt x 75.6426pt>
+File: media/Bending_Moment_Distribution.png Graphic file (type png)
+<use media/Bending_Moment_Distribution.png>
+Package pdftex.def Info: media/Bending_Moment_Distribution.png  used on input l
+ine 399.
+(pdftex.def)             Requested size: 230.18253pt x 77.05745pt.
+<media/Slope_Distribution.png, id=282, 225.9642pt x 75.6426pt>
+File: media/Slope_Distribution.png Graphic file (type png)
+<use media/Slope_Distribution.png>
+Package pdftex.def Info: media/Slope_Distribution.png  used on input line 407.
+(pdftex.def)             Requested size: 230.18253pt x 77.05745pt.
+<media/Tower_Deflection_Analysis.png, id=283, 225.9642pt x 75.6426pt>
+File: media/Tower_Deflection_Analysis.png Graphic file (type png)
+<use media/Tower_Deflection_Analysis.png>
+Package pdftex.def Info: media/Tower_Deflection_Analysis.png  used on input lin
+e 414.
+(pdftex.def)             Requested size: 230.18253pt x 77.05745pt.
 
 
-[11 <../../PNGS/Deliverable4_Power_vs_Pitch.png (PNG copy)>]
-<../../PNGS/Tower_Deflection_Analysis.png, id=284, 602.25pt x 602.25pt>
-File: ../../PNGS/Tower_Deflection_Analysis.png Graphic file (type png)
-<use ../../PNGS/Tower_Deflection_Analysis.png>
-Package pdftex.def Info: ../../PNGS/Tower_Deflection_Analysis.png  used on inpu
-t line 386.
-(pdftex.def)             Requested size: 328.82707pt x 328.84004pt.
+[11 <./media/Tower_Load_Distribution.png (PNG copy)> <./media/Tower_Deflection_
+Only.png (PNG copy)> <./media/Shear_Distribution.png (PNG copy)> <./media/Bendi
+ng_Moment_Distribution.png (PNG copy)> <./media/Slope_Distribution.png (PNG cop
+y)> <./media/Tower_Deflection_Analysis.png (PNG copy)>]
+<media/Goodman_Diagram_Analysis.png, id=294, 308.352pt x 225.9642pt>
+File: media/Goodman_Diagram_Analysis.png Graphic file (type png)
+<use media/Goodman_Diagram_Analysis.png>
+Package pdftex.def Info: media/Goodman_Diagram_Analysis.png  used on input line
+ 439.
+(pdftex.def)             Requested size: 234.8775pt x 172.12418pt.
 
 
-[12 <../../PNGS/Tower_Load_Distribution.png (PNG copy)> <../../PNGS/Tower_Defle
-ction_Only.png (PNG copy)>]
+[12 <./media/Goodman_Diagram_Analysis.png (PNG copy)>] (./CompleteReport1.bbl)
 
-[13 <../../PNGS/Tower_Deflection_Analysis.png (PNG copy)>]
-<../../PNGS/Goodman_Diagram_Analysis.png, id=301, 602.25pt x 451.9284pt>
-File: ../../PNGS/Goodman_Diagram_Analysis.png Graphic file (type png)
-<use ../../PNGS/Goodman_Diagram_Analysis.png>
-Package pdftex.def Info: ../../PNGS/Goodman_Diagram_Analysis.png  used on input
- line 409.
-(pdftex.def)             Requested size: 328.82707pt x 246.76157pt.
-
-
-[14 <../../PNGS/Goodman_Diagram_Analysis.png (PNG copy)>]
-(./CompleteReport1.bbl)
-
-[15] (./CompleteReport1.aux)
+[13] (./CompleteReport1.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
  ***********
-
-
-LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
-
 Package rerunfilecheck Info: File `CompleteReport1.out' has not changed.
 (rerunfilecheck)             Checksum: 09C511D818055A18DB9A6539C461C2D2;5803.
  ) 
 Here is how much of TeX's memory you used:
- 15823 strings out of 473190
- 310527 string characters out of 5715801
- 673052 words of memory out of 5000000
- 38821 multiletter control sequences out of 15000+600000
+ 15844 strings out of 473190
+ 311106 string characters out of 5715801
+ 673206 words of memory out of 5000000
+ 38845 multiletter control sequences out of 15000+600000
  569243 words of font info for 76 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  75i,12n,80p,1055b,1054s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -628,10 +637,10 @@ ve/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/local/texlive/
 025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/local/texlive/202
 5/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb></usr/local/texlive/2025
 /texmf-dist/fonts/type1/public/cm-super/sfrm1095.pfb>
-Output written on CompleteReport1.pdf (15 pages, 3641439 bytes).
+Output written on CompleteReport1.pdf (13 pages, 3474034 bytes).
 PDF statistics:
- 409 PDF objects out of 1000 (max. 8388607)
- 348 compressed objects within 4 object streams
- 100 named destinations out of 1000 (max. 500000)
- 297 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 403 PDF objects out of 1000 (max. 8388607)
+ 341 compressed objects within 4 object streams
+ 97 named destinations out of 1000 (max. 500000)
+ 312 words of extra memory for PDF output out of 10000 (max. 10000000)
 
