@@ -106,17 +106,17 @@ function config = createConfig() % USED FOR CHOOSING OUTPUT PLOTS
     % Set to true to generate plots, false to skip (saves computation time)
     config.plot_d1_results =        false;    % D1: Side-by-side CP/CT distribution plots
     config.plot_d2_optimization =   false;    % D2: CP/CT vs pitch angle optimization
-    config.plot_d3_optimization =   true;    % D3: 3D surface plot of CP optimization
+    config.plot_d3_optimization =   false;    % D3: 3D surface plot of CP optimization
     config.plot_d4_power =          false;    % D4: Power vs pitch for rated power control
     config.plot_d5_deflection =     true;    % D5: Tower deflection profile plots
     config.plot_d5_mohr =           false;    % D5: Mohrs circle stress analysis
-    config.plot_d5_goodman =        true;    % D5: Goodman diagram fatigue analysis
+    config.plot_d5_goodman =        false;    % D5: Goodman diagram fatigue analysis
     config.plot_d5_tower =          true;    % D5: Comprehensive tower analysis plots
     
     % ============================================================================
     % OUTPUT AND FILE MANAGEMENT
     % ============================================================================
-    config.save_plots = false;          % Save all generated plots as PNG files
+    config.save_plots = true;          % Save all generated plots as PNG files
     config.parameters_path = 'Auxilary Information/Given Parameters/'; % Path to input data files
     
     % ============================================================================
@@ -1461,20 +1461,17 @@ function createTowerDeflectionPlot(deflection_results, ~, config)
     if ~config.plot_d5_deflection, return; end
     
     figure(5); set(gcf, 'Position', [100, 100, 800, 400]);
-    plot(deflection_results.z, deflection_results.case1.deflection, [config.color_primary '-'], 'LineWidth', 2);
+    % Deflection-only plot (matches 4th subplot styling: units in mm)
+    plot(deflection_results.z, deflection_results.case1.deflection*1000, [config.color_primary '-'], 'LineWidth', 2);
     hold on;
-    plot(deflection_results.z, deflection_results.case2.deflection, [config.color_secondary '--'], 'LineWidth', 2);
-    xlabel('Height (m)'); ylabel('Deflection (m)'); title('Tower Deflection Profile');
+    plot(deflection_results.z, deflection_results.case2.deflection*1000, [config.color_secondary '--'], 'LineWidth', 2);
+    xlabel('Height (m)'); ylabel('Deflection (mm)'); title('Tower Deflection Distribution');
     legend('Load Case 1', 'Load Case 2', 'Location', 'best'); grid on;
-    
-    [max_deflection_case1, ~] = max(abs(deflection_results.case1.deflection));
-    text(50, 0.35, sprintf('Max Deflection: %.3f m', max_deflection_case1), ...
-        'FontSize', 10, 'FontWeight', 'bold', 'Color', config.color_primary, ...
-        'BackgroundColor', 'white', 'EdgeColor', config.color_primary);
+    xlim([0, max(deflection_results.z)]);
     
     if config.save_plots
-        saveas(gcf, 'Tower_Deflection_Analysis.png');
-        fprintf('Tower deflection plot saved as Tower_Deflection_Analysis.png\n');
+        saveas(gcf, 'Tower_Deflection_Only.png');
+        fprintf('Tower deflection plot saved as Tower_Deflection_Only.png\n');
     end
 end
 
@@ -1791,32 +1788,32 @@ function createVisualization(r_stations, dCP, dCT, CP, CT, ~, ~, ~, config)
     if ~isempty(dCP) && ~isempty(dCT)
         % Left plot: Power coefficient distribution with CP and CT values
         subplot(1, 2, 1);
-        area(r_stations, dCP, 'FaceColor', 'blue', 'FaceAlpha', 0.3, 'EdgeColor', 'blue', 'LineWidth', 2);
-        xlabel('Radius [m]');
-        ylabel('Local C_P (per unit area)');
-        title('Local Power Coefficient Distribution');
+        area(r_stations, dCP, 'FaceColor', 'blue', 'FaceAlpha', 0.3, 'EdgeColor', 'blue', 'LineWidth', 3);
+        xlabel('Radius [m]', 'FontSize', 20, 'FontWeight', 'bold');
+        ylabel('Local C_P (per unit area)', 'FontSize', 20, 'FontWeight', 'bold');
+        title('Local Power Coefficient Distribution', 'FontSize', 22, 'FontWeight', 'bold');
         % Format y-axis to avoid scientific notation
-        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.4f'));
+        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.4f'), 'FontSize', 18, 'FontWeight', 'bold', 'LineWidth', 2);
         grid on;
         
         % Add CP value to the power coefficient plot
         text(0.05, 0.75, sprintf('C_P = %.4f', CP), 'Units', 'normalized', ...
-            'FontSize', 10, 'FontWeight', 'bold', 'Color', 'blue', ...
+            'FontSize', 18, 'FontWeight', 'bold', 'Color', 'blue', ...
             'BackgroundColor', 'white', 'EdgeColor', 'blue');
         
         % Right plot: Thrust coefficient distribution
         subplot(1, 2, 2);
-        area(r_stations, dCT, 'FaceColor', 'red', 'FaceAlpha', 0.3, 'EdgeColor', 'red', 'LineWidth', 2);
-        xlabel('Radius [m]');
-        ylabel('Local C_T (per unit area)');
-        title('Local Thrust Coefficient Distribution');
+        area(r_stations, dCT, 'FaceColor', 'red', 'FaceAlpha', 0.3, 'EdgeColor', 'red', 'LineWidth', 3);
+        xlabel('Radius [m]', 'FontSize', 20, 'FontWeight', 'bold');
+        ylabel('Local C_T (per unit area)', 'FontSize', 20, 'FontWeight', 'bold');
+        title('Local Thrust Coefficient Distribution', 'FontSize', 22, 'FontWeight', 'bold');
         % Format y-axis to avoid scientific notation
-        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.4f'));
+        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.4f'), 'FontSize', 18, 'FontWeight', 'bold', 'LineWidth', 2);
         grid on;
         
         % Add CT value to the thrust coefficient plot
         text(0.05, 0.75, sprintf('C_T = %.4f', CT), 'Units', 'normalized', ...
-            'FontSize', 10, 'FontWeight', 'bold', 'Color', 'red', ...
+            'FontSize', 18, 'FontWeight', 'bold', 'Color', 'red', ...
             'BackgroundColor', 'white', 'EdgeColor', 'red');
         
     else
@@ -1824,24 +1821,24 @@ function createVisualization(r_stations, dCP, dCT, CP, CT, ~, ~, ~, config)
         subplot(1, 2, 1);
         a_range = 0:0.01:0.5;
         CP_theory = 4*a_range.*(1-a_range).^2;
-        plot(a_range, CP_theory, [config.color_primary '-'], 'LineWidth', 2);
-        xlabel('Axial Induction Factor (a)');
-        ylabel('Power Coefficient (C_P)');
-        title('Theoretical C_P vs Axial Induction Factor');
-        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.3f'));
+        plot(a_range, CP_theory, [config.color_primary '-'], 'LineWidth', 3);
+        xlabel('Axial Induction Factor (a)', 'FontSize', 20, 'FontWeight', 'bold');
+        ylabel('Power Coefficient (C_P)', 'FontSize', 20, 'FontWeight', 'bold');
+        title('Theoretical C_P vs Axial Induction Factor', 'FontSize', 22, 'FontWeight', 'bold');
+        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.3f'), 'FontSize', 18, 'FontWeight', 'bold', 'LineWidth', 2);
         grid on;
         
         subplot(1, 2, 2);
         CT_theory = 4*a_range.*(1-a_range);
-        plot(a_range, CT_theory, 'r-', 'LineWidth', 2);
-        xlabel('Axial Induction Factor (a)');
-        ylabel('Thrust Coefficient (C_T)');
-        title('Theoretical C_T vs Axial Induction Factor');
-        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.3f'));
+        plot(a_range, CT_theory, 'r-', 'LineWidth', 3);
+        xlabel('Axial Induction Factor (a)', 'FontSize', 20, 'FontWeight', 'bold');
+        ylabel('Thrust Coefficient (C_T)', 'FontSize', 20, 'FontWeight', 'bold');
+        title('Theoretical C_T vs Axial Induction Factor', 'FontSize', 22, 'FontWeight', 'bold');
+        set(gca, 'YTickLabel', num2str(get(gca, 'YTick')', '%.3f'), 'FontSize', 18, 'FontWeight', 'bold', 'LineWidth', 2);
         grid on;
     end
     
-    sgtitle('Wind Turbine Analysis - Deliverable 1', 'FontSize', 16, 'FontWeight', 'bold');
+    sgtitle('Wind Turbine Analysis - Deliverable 1', 'FontSize', 26, 'FontWeight', 'bold');
     
     % Save plot if enabled
     if config.save_plots
@@ -1852,53 +1849,35 @@ end
 
 function createPitchOptimizationPlot(pitch_range, CP_values, CT_values, optimal_pitch, CP_max, V_wind, lambda, config)
 % CREATEPITCHOPTIMIZATIONPLOT Create visualization of CP and CT vs Pitch Angle
-% Generates comprehensive plots showing power and thrust coefficients versus
-% pitch angle with optimal point highlighting and dual y-axis formatting.
-%
-% Inputs:
-%   pitch_range  - Array of pitch angles [degrees]
-%   CP_values    - Power coefficient values
-%   CT_values    - Thrust coefficient values
-%   optimal_pitch - Optimal pitch angle [degrees]
-%   CP_max       - Maximum power coefficient
-%   V_wind       - Wind speed [m/s]
-%   lambda       - Tip speed ratio
-%   config       - Configuration structure
-    
+% Generates comprehensive plots showing power and thrust coefficients versus pitch angle with optimal point highlighting and dual y-axis formatting.
+% Inputs as before...
     if ~config.plot_d2_optimization, return; end
-    
     figure(2); set(gcf, 'Position', [100, 100, 1000, 700]);
-    
     yyaxis left;
-    plot(pitch_range, CP_values, [config.color_primary '-o'], 'LineWidth', 2, 'MarkerSize', 4);
-    ylabel('Coefficient of Power (C_P)'); ylim_left = ylim;
-    
+    plot(pitch_range, CP_values, [config.color_primary '-o'], 'LineWidth', 3, 'MarkerSize', 12);
+    ylabel('Coefficient of Power (C_P)', 'FontSize', 20, 'FontWeight','bold'); ylim_left = ylim;
+    set(gca, 'FontSize', 18, 'LineWidth', 2, 'FontWeight','bold');
     yyaxis right;
-    plot(pitch_range, CT_values, [config.color_secondary '-x'], 'LineWidth', 2, 'MarkerSize', 4);
-    ylabel('Coefficient of Thrust (C_T)'); ylim_right = ylim;
-    
+    plot(pitch_range, CT_values, [config.color_secondary '-x'], 'LineWidth', 3, 'MarkerSize', 12);
+    ylabel('Coefficient of Thrust (C_T)', 'FontSize', 20, 'FontWeight','bold'); ylim_right = ylim;
+    set(gca, 'FontSize', 18, 'LineWidth', 2, 'FontWeight','bold');
     ylim_combined = [min(ylim_left(1), ylim_right(1)), max(ylim_left(2), ylim_right(2))];
     yyaxis left; ylim(ylim_combined);
     yyaxis right; ylim(ylim_combined);
-    
     [~, optimal_idx] = min(abs(pitch_range - optimal_pitch));
     CT_at_optimal = CT_values(optimal_idx);
-    
     hold on;
-    xline(optimal_pitch, 'k--', 'LineWidth', 2, 'DisplayName', sprintf('Optimal \\theta = %.1f°', optimal_pitch));
-    plot(optimal_pitch, CP_max, 'go', 'MarkerSize', 10, 'LineWidth', 2, 'DisplayName', sprintf('Max C_P = %.4f', CP_max));
-    
+    xline(optimal_pitch, 'k--', 'LineWidth', 3, 'DisplayName', sprintf('Optimal \\theta = %.1f°', optimal_pitch));
+    plot(optimal_pitch, CP_max, 'go', 'MarkerSize', 18, 'LineWidth', 3, 'DisplayName', sprintf('Max C_P = %.4f', CP_max));
     yyaxis left;
-    text(optimal_pitch + 0.5, CP_max + 0.075, sprintf('C_P = %.4f', CP_max), 'FontSize', 10, 'FontWeight', 'bold', 'Color', 'blue', 'BackgroundColor', 'white');
-    
+    text(optimal_pitch + 0.5, CP_max + 0.075, sprintf('C_P = %.4f', CP_max), 'FontSize', 18, 'FontWeight', 'bold', 'Color', 'blue', 'BackgroundColor', 'white');
     yyaxis right;
-    text(optimal_pitch + 0.5, CT_at_optimal + 0.075, sprintf('C_T = %.4f', CT_at_optimal), 'FontSize', 10, 'FontWeight', 'bold', 'Color', 'red', 'BackgroundColor', 'white');
-    
+    text(optimal_pitch + 0.5, CT_at_optimal + 0.075, sprintf('C_T = %.4f', CT_at_optimal), 'FontSize', 18, 'FontWeight', 'bold', 'Color', 'red', 'BackgroundColor', 'white');
     hold off;
-    xlabel('Pitch Angle (degrees)');
-    title(sprintf('Wind Turbine Pitch Optimization (V = %.1f m/s, \\lambda = %.1f)', V_wind, lambda));
-    legend('C_P', 'C_T', sprintf('Optimal \\theta = %.1f°', optimal_pitch), 'Optimal C_P', 'Location', 'best'); grid on;
-    
+    xlabel('Pitch Angle (degrees)', 'FontSize', 20, 'FontWeight','bold');
+    title(sprintf('Wind Turbine Pitch Optimization (V = %.1f m/s, \\lambda = %.1f)', V_wind, lambda), 'FontSize', 24, 'FontWeight','bold');
+    legend('C_P', 'C_T', sprintf('Optimal \\beta = %.1f°', optimal_pitch), 'Optimal C_P', 'Location', 'best', 'FontSize', 18, 'FontWeight','bold');
+    grid on; set(gca,'LineWidth',2);
     if config.save_plots
         saveas(gcf, 'Pitch_Optimization_Results.png');
         fprintf('Pitch optimization results visualization saved as Pitch_Optimization_Results.png\n');
@@ -1907,70 +1886,37 @@ end
 
 function create3DOptimizationPlot(lambda_range, pitch_range, CP_matrix, optimal_lambda, optimal_pitch, CP_max, V_wind, config)
 % CREATE3DOPTIMIZATIONPLOT Create 3D visualization of CP optimization
-% Generates a 3D surface plot showing power coefficient versus tip speed ratio
-% and pitch angle with optimal operating point highlighting.
-%
-% Inputs:
-%   lambda_range   - Array of tip speed ratios
-%   pitch_range    - Array of pitch angles [degrees]
-%   CP_matrix      - Power coefficient matrix [lambda x pitch]
-%   optimal_lambda - Optimal tip speed ratio
-%   optimal_pitch  - Optimal pitch angle [degrees]
-%   CP_max         - Maximum power coefficient
-%   V_wind         - Wind speed [m/s]
-%   config         - Configuration structure
-    
+% ... Inputs as before ...
     if ~config.plot_d3_optimization
         return;
     end
-    
     figure(3); set(gcf, 'Position', [100, 100, 800, 600]);
-    
-    % Create meshgrid for 3D plotting (flipped axes)
     [PITCH, LAMBDA] = meshgrid(pitch_range, lambda_range);
-    
-    % 3D surface plot (flipped axes)
-    surf(PITCH, LAMBDA, CP_matrix');%'
-    xlabel('Pitch Angle (degrees)');
-    ylabel('Tip Speed Ratio (\lambda)');
-    zlabel('Power Coefficient (C_P)');
-    title(sprintf('Wind Turbine 3D Performance Optimization (V = %.1f m/s)', V_wind)); %
+    surf(PITCH, LAMBDA, CP_matrix');
+    xlabel('Pitch Angle (degrees)', 'FontSize', 20, 'FontWeight','bold');
+    ylabel('Tip Speed Ratio (λ)', 'FontSize', 20, 'FontWeight','bold');
+    zlabel('Power Coefficient (C_P)', 'FontSize', 20, 'FontWeight','bold');
+    title(sprintf('Wind Turbine 3D Performance Optimization (V = %.1f m/s)', V_wind), 'FontSize', 24, 'FontWeight','bold');
+    set(gca, 'FontSize', 18, 'LineWidth', 2, 'FontWeight','bold');
     shading interp;
-    colorbar;
-    
-    % Highlight optimal point and add Betz limit plane
+    colorbar('FontSize',18, 'FontWeight','bold', 'LineWidth', 2);
     hold on;
-    plot3(optimal_pitch, optimal_lambda, CP_max, 'ro', 'MarkerSize', 12, 'LineWidth', 3, 'MarkerFaceColor', 'red');
-    
-    % Add Betz limit plane (red and translucent)
-    betz_limit = 0.593;  % Theoretical maximum power coefficient
+    plot3(optimal_pitch, optimal_lambda, CP_max, 'ro', 'MarkerSize', 18, 'LineWidth', 3, 'MarkerFaceColor', 'red');
+    betz_limit = 0.593;
     [PITCH_betz, LAMBDA_betz] = meshgrid(pitch_range, lambda_range);
     CP_betz = betz_limit * ones(size(PITCH_betz));
     surf(PITCH_betz, LAMBDA_betz, CP_betz, 'FaceColor', 'red', 'FaceAlpha', 0.3, 'EdgeColor', 'none');
-    
-    % Add text annotation for optimal point (moved vertically by +0.75, pitch axis by +5)
     text(optimal_pitch + 5, optimal_lambda, CP_max + 0.05, ...
         sprintf('Max C_P = %.4f\nλ = %.3f\nθ = %.1f°', CP_max, optimal_lambda, optimal_pitch), ...
-        'FontSize', 10, 'FontWeight', 'bold', 'Color', 'red', ...
-        'BackgroundColor', 'white', 'EdgeColor', 'red');
-    
-    % Add text annotation for Betz limit
+        'FontSize', 18, 'FontWeight', 'bold', 'Color', 'red', 'BackgroundColor', 'white');
     text(pitch_range(end) - 10, lambda_range(end) - 1, betz_limit + 0.25, ...
         sprintf('Betz Limit = %.3f', betz_limit), ...
-        'FontSize', 10, 'FontWeight', 'bold', 'Color', 'red', ...
-        'BackgroundColor', 'white', 'EdgeColor', 'red');
-    
+        'FontSize', 18, 'FontWeight', 'bold', 'Color', 'red', 'BackgroundColor', 'white');
     hold off;
-    
-    % Set axis limits for better visualization
-    xlim([min(pitch_range)*0.85, max(pitch_range)*0.65]);  % X-axis: pitch angle range
-    ylim([min(lambda_range), max(lambda_range)]); % Y-axis: tip speed ratio range
-    zlim([-0.5, max(max(CP_matrix)) + 0.1]);     % Z-axis: CP values > -0.5
-    
-    % Improve view angle
+    xlim([min(pitch_range)*0.85, max(pitch_range)*0.65]);
+    ylim([min(lambda_range), max(lambda_range)]);
+    zlim([-0.5, max(max(CP_matrix)) + 0.1]);
     view(30, 20);
-    
-    % Save plot if enabled
     if config.save_plots
         saveas(gcf, '2D_CP_Optimization_Results.png');
         fprintf('3D optimization results visualization saved as 2D_CP_Optimization_Results.png\n');
@@ -1979,30 +1925,18 @@ end
 
 function createPowerPitchPlot(pitch_range, P_pitch, pitch_req, P_req, ratedPower, V_wind, config)
 % CREATEPOWERPITCHPLOT Create visualization of power vs pitch angle
-% Generates plot showing power output versus pitch angle with rated power
-% constraint and optimal operating point highlighting.
-%
-% Inputs:
-%   pitch_range  - Array of pitch angles [degrees]
-%   P_pitch      - Power output at each pitch angle [W]
-%   pitch_req    - Required pitch angle [degrees]
-%   P_req        - Power at required pitch angle [W]
-%   ratedPower   - Rated power limit [W]
-%   V_wind       - Wind speed [m/s]
-%   config       - Configuration structure
-    
     if ~config.plot_d4_power, return; end
-    
     figure(4); set(gcf, 'Position', [100, 100, 600, 500]);
-    plot(pitch_range, P_pitch/1e3, [config.color_primary '-'], 'LineWidth', 2); hold on;
-    yline(ratedPower/1e3, 'r--', 'Rated');
-    plot(pitch_req, P_req/1e3, 'ko', 'MarkerSize', 8, 'LineWidth', 2);
+    plot(pitch_range, P_pitch/1e3, [config.color_primary '-'], 'LineWidth', 3); hold on;
+    yline(ratedPower/1e3, 'r--', 'Rated', 'LineWidth', 3, 'FontSize', 18, 'FontWeight','bold');
+    plot(pitch_req, P_req/1e3, 'ko', 'MarkerSize', 14, 'LineWidth', 3);
     text(pitch_req + 0.5, 2750, sprintf('Pitch: %.1f°', pitch_req), ...
-        'FontSize', 10, 'FontWeight', 'bold', 'Color', 'black', ...
+        'FontSize', 18, 'FontWeight', 'bold', 'Color', 'black', ...
         'BackgroundColor', 'white', 'EdgeColor', 'black');
-    xlabel('Pitch (deg)'); ylabel('Power (kW)'); 
-    title(sprintf('Power vs Pitch (V = %.1f m/s)', V_wind)); grid on;
-    
+    xlabel('Pitch (deg)', 'FontSize', 20, 'FontWeight','bold'); ylabel('Power (kW)', 'FontSize', 20, 'FontWeight','bold');
+    title(sprintf('Power vs Pitch (V = %.1f m/s)', V_wind), 'FontSize', 24, 'FontWeight','bold');
+    grid on; set(gca, 'FontSize', 18, 'LineWidth', 2, 'FontWeight','bold');
+    legend({'Power','Rated Power','Operating Point'}, 'FontSize', 18, 'FontWeight','bold', 'Location','best');
     if config.save_plots
         saveas(gcf, 'Deliverable4_Power_vs_Pitch.png');
         fprintf('Power vs Pitch plot saved as Deliverable4_Power_vs_Pitch.png\n');
