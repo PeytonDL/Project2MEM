@@ -95,9 +95,9 @@ function config = createConfig() % USED FOR CHOOSING OUTPUT PLOTS
     % Dependencies: D5 requires D4 results for realistic operating conditions
     config.run_deliverable_1 =      true;    % Basic BEM Analysis (CP, CT calculation)
     config.run_deliverable_2 =      true;    % Pitch Optimization (optimal pitch finding)
-    config.run_deliverable_3 =      false;    % 2D CP Optimization (lambda & pitch optimization)
-    config.run_deliverable_4 =      false;    % Rated Power Pitch Control (pitch for 2.5 MW)
-    config.run_deliverable_5 =      false;    % Tower Structural Analysis (deflection & stress)
+    config.run_deliverable_3 =      true;    % 2D CP Optimization (lambda & pitch optimization)
+    config.run_deliverable_4 =      true;    % Rated Power Pitch Control (pitch for 2.5 MW)
+    config.run_deliverable_5 =      true;    % Tower Structural Analysis (deflection & stress)
     
     % ============================================================================
     % VISUALIZATION CONTROL
@@ -105,13 +105,13 @@ function config = createConfig() % USED FOR CHOOSING OUTPUT PLOTS
     % Enable/disable specific plot generation for each deliverable
     % Set to true to generate plots, false to skip (saves computation time)
     config.plot_d1_results =        false;    % D1: Side-by-side CP/CT distribution plots
-    config.plot_d2_optimization =   true;    % D2: CP/CT vs pitch angle optimization
+    config.plot_d2_optimization =   false;    % D2: CP/CT vs pitch angle optimization
     config.plot_d3_optimization =   false;    % D3: 3D surface plot of CP optimization
     config.plot_d4_power =          false;    % D4: Power vs pitch for rated power control
-    config.plot_d5_deflection =     false;    % D5: Tower deflection profile plots
+    config.plot_d5_deflection =     true;    % D5: Tower deflection profile plots
     config.plot_d5_mohr =           false;    % D5: Mohrs circle stress analysis
     config.plot_d5_goodman =        false;    % D5: Goodman diagram fatigue analysis
-    config.plot_d5_tower =          false;    % D5: Comprehensive tower analysis plots
+    config.plot_d5_tower =          true;    % D5: Comprehensive tower analysis plots
     
     % ============================================================================
     % OUTPUT AND FILE MANAGEMENT
@@ -1461,20 +1461,17 @@ function createTowerDeflectionPlot(deflection_results, ~, config)
     if ~config.plot_d5_deflection, return; end
     
     figure(5); set(gcf, 'Position', [100, 100, 800, 400]);
-    plot(deflection_results.z, deflection_results.case1.deflection, [config.color_primary '-'], 'LineWidth', 2);
+    % Deflection-only plot (matches 4th subplot styling: units in mm)
+    plot(deflection_results.z, deflection_results.case1.deflection*1000, [config.color_primary '-'], 'LineWidth', 2);
     hold on;
-    plot(deflection_results.z, deflection_results.case2.deflection, [config.color_secondary '--'], 'LineWidth', 2);
-    xlabel('Height (m)'); ylabel('Deflection (m)'); title('Tower Deflection Profile');
+    plot(deflection_results.z, deflection_results.case2.deflection*1000, [config.color_secondary '--'], 'LineWidth', 2);
+    xlabel('Height (m)'); ylabel('Deflection (mm)'); title('Tower Deflection Distribution');
     legend('Load Case 1', 'Load Case 2', 'Location', 'best'); grid on;
-    
-    [max_deflection_case1, ~] = max(abs(deflection_results.case1.deflection));
-    text(50, 0.35, sprintf('Max Deflection: %.3f m', max_deflection_case1), ...
-        'FontSize', 10, 'FontWeight', 'bold', 'Color', config.color_primary, ...
-        'BackgroundColor', 'white', 'EdgeColor', config.color_primary);
+    xlim([0, max(deflection_results.z)]);
     
     if config.save_plots
-        saveas(gcf, 'Tower_Deflection_Analysis.png');
-        fprintf('Tower deflection plot saved as Tower_Deflection_Analysis.png\n');
+        saveas(gcf, 'Tower_Deflection_Only.png');
+        fprintf('Tower deflection plot saved as Tower_Deflection_Only.png\n');
     end
 end
 

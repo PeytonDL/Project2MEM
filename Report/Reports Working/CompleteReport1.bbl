@@ -1,0 +1,31 @@
+\begin{thebibliography}{1}
+
+\bibitem{anderson_severson_2025_blade_slice_geometry_slides}
+M.~Anderson and E.~Severson, ``Blade slice geometry slides.'' PowerPoint
+  slides, October 2025.
+\newblock University of Minnesota Canvas.
+
+\bibitem{umn_eolos_research_projects}
+E.~W. E.~R. Consortium, ``Ongoing research projects,'' 2024.
+\newblock University of Minnesota.
+
+\bibitem{anderson_severson_2025_project_description}
+M.~Anderson and E.~Severson, ``Me 4053: Fall 2025 project 2 --- wind turbine
+  analysis.'' Course project description, Mechanical Engineering Department,
+  University of Minnesota, October 2025.
+\newblock Project assignment document providing analysis prompts and
+  deliverables.
+
+\bibitem{anderson_2024_cylinder_cd_function}
+M.~J. Anderson, ``Matlab function: cylindercd.'' MATLAB code, October 2024.
+\newblock Function to compute the drag coefficient for a cylinder in cross
+  flow; authored for wind turbine analysis project. Includes references to
+  White (2006) and Cheng (2013).
+
+\bibitem{corke_aerodynamics_presentation}
+T.~C. Corke, ``Aerodynamics of wind turbines.'' Lecture presentation (PDF),
+  2014.
+\newblock Department of Aerospace and Mechanical Engineering, University of
+  Notre Dame.
+
+\end{thebibliography}
