@@ -1,13 +1,13 @@
 # Fdb version 4
-["bibtex CompleteReport1"] 1761842692.9425 "CompleteReport1.aux" "CompleteReport1.bbl" "CompleteReport1" 1761842694.05424 0
+["bibtex CompleteReport1"] 1761842692.9425 "CompleteReport1.aux" "CompleteReport1.bbl" "CompleteReport1" 1761843227.00434 0
   "./references.bib" 1761791161.79857 2323 516b51b48b071fd4a01c0005818035e6 ""
   "/usr/local/texlive/2025/texmf-dist/bibtex/bst/base/ieeetr.bst" 1292289607 18361 1a00e58565e7f19bf2b3e1bfb82254ae ""
-  "CompleteReport1.aux" 1761842693.79377 10380 59e907771a11803e1f2eab5d5d65f15b "pdflatex"
+  "CompleteReport1.aux" 1761843226.75034 10380 59e907771a11803e1f2eab5d5d65f15b "pdflatex"
   (generated)
   "CompleteReport1.bbl"
   "CompleteReport1.blg"
   (rewritten before read)
-["pdflatex"] 1761842693.05057 "CompleteReport1.tex" "CompleteReport1.pdf" "CompleteReport1" 1761842694.05441 0
+["pdflatex"] 1761843226.0101 "CompleteReport1.tex" "CompleteReport1.pdf" "CompleteReport1" 1761843227.00451 0
   "/usr/local/texlive/2025/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.enc" 1136849721 2900 1537cc8184ad1792082cd229ecc269f4 ""
   "/usr/local/texlive/2025/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/usr/local/texlive/2025/texmf-dist/fonts/tfm/jknappen/ec/tcrm1095.tfm" 1136768653 1536 02c06700a42be0f5a28664c7273f82e7 ""
@@ -117,11 +117,11 @@
   "/usr/local/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1758033502 5467155 19efa205003f9ecad95fbbaa6ff24da1 ""
   "/usr/local/texlive/2025/texmf-var/web2c/pdftex/pdflatex.fmt" 1741450574 3345740 46b66fdb0378f7bf5921b5eabf1762b8 ""
   "/usr/local/texlive/2025/texmf.cnf" 1741450484 577 418a7058ec8e006d8704f60ecd22c938 ""
-  "CompleteReport1.aux" 1761842693.79377 10380 59e907771a11803e1f2eab5d5d65f15b "pdflatex"
+  "CompleteReport1.aux" 1761843226.75034 10380 59e907771a11803e1f2eab5d5d65f15b "pdflatex"
   "CompleteReport1.bbl" 1761842693.04793 1242 87e360c838033a83b4255c3892482c0b "bibtex CompleteReport1"
-  "CompleteReport1.out" 1761842693.79478 5803 09c511d818055a18db9a6539c461c2d2 "pdflatex"
-  "CompleteReport1.tex" 1761842682.71577 26893 137fdcfe7776b7d36147c4f004ce389d ""
-  "CompleteReport1.toc" 1761842693.79503 3210 d070347200a11ebd60b363ddd80fde65 "pdflatex"
+  "CompleteReport1.out" 1761843226.75145 5803 09c511d818055a18db9a6539c461c2d2 "pdflatex"
+  "CompleteReport1.tex" 1761843203.01917 27444 f379bd7fdcd4127147b0a27f6bc50e59 ""
+  "CompleteReport1.toc" 1761843226.75169 3210 d070347200a11ebd60b363ddd80fde65 "pdflatex"
   "media/2D_CP_Optimization_Results.png" 1761842623.94396 79845 b919dacbe62a449391009b0466a3f8a3 ""
   "media/Bending_Moment_Distribution.png" 1761842629.09167 13597 105a3bc2d86b00511d1a6b7562cfb1de ""
   "media/Deliverable4_Power_vs_Pitch.png" 1761842625.80708 23587 189b9b1509afa81dd6490e5fb61ec4a4 ""

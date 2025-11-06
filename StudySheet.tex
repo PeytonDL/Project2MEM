@@ -1,0 +1,356 @@
+\documentclass[8pt]{article}
+\usepackage[margin=0.25in,landscape]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{multicol}
+\usepackage{array}
+\setlength{\columnsep}{0.15in}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+\setlength{\abovedisplayskip}{1pt}
+\setlength{\belowdisplayskip}{1pt}
+\setlength{\abovedisplayshortskip}{1pt}
+\setlength{\belowdisplayshortskip}{1pt}
+
+% Compact spacing
+\renewcommand{\baselinestretch}{0.75}
+\setlength{\lineskip}{0.3pt}
+
+\begin{document}
+\tiny
+\begin{multicols}{4}
+
+\section*{\scriptsize Beam Mechanics}
+
+\subsection*{\tiny Wind \& Loading}
+\textit{Wind profile (power law):}
+\begin{equation*}
+U(z) = U_{\text{ref}}\left(\frac{z}{z_{\text{ref}}}\right)^{\epsilon}
+\end{equation*}
+$\epsilon \approx 0.1-0.3$ (terrain dep.)
+
+\textit{Distributed drag:}
+\begin{equation*}
+q(z) = \tfrac{1}{2}\rho C_D(z) D(z) U(z)^2
+\end{equation*}
+
+\textit{Nacelle load:}
+\begin{equation*}
+q_n(z) = \begin{cases}
+\frac{F_t}{h_n}, & z \in [z_t, z_t+h_n] \\
+0, & \text{else}
+\end{cases}
+\end{equation*}
+
+\subsection*{\tiny Shear \& Moment}
+\textit{Differential relations:}
+\begin{equation*}
+\frac{\mathrm{d}V}{\mathrm{d}z} = -q(z), \quad \frac{\mathrm{d}M}{\mathrm{d}z} = -V(z)
+\end{equation*}
+
+\textit{Integration:}
+\begin{equation*}
+V(z) = \int_z^H q(\xi)\,\mathrm{d}\xi, \quad M(z) = \int_z^H V(\xi)\,\mathrm{d}\xi
+\end{equation*}
+
+\subsection*{\tiny Deflection}
+\textit{Curvature:}
+\begin{equation*}
+\kappa(z) = \frac{M(z)}{E I(z)}
+\end{equation*}
+
+\textit{Slope:}
+\begin{equation*}
+\theta(z) = \int_0^z \kappa(\xi)\,\mathrm{d}\xi
+\end{equation*}
+
+\textit{Deflection (BC: $w(0)=0$, $\theta(0)=0$):}
+\begin{equation*}
+\textbf{$w(z) = \int_0^z \theta(\xi)\,\mathrm{d}\xi$}
+\end{equation*}
+
+\textit{Integration method:} trapezoidal (cumtrapz)
+
+\subsection*{\tiny Stress}
+\textit{Bending stress (at base):}
+\begin{equation*}
+\textbf{$\sigma_b = \frac{M c}{I}$}
+\end{equation*}
+$c = R_{\text{outer}}$ for tubes
+
+\textit{Principal stresses (uniaxial):}
+\begin{equation*}
+\sigma_1 = \sigma_b,\quad \sigma_2 = 0, \quad \textbf{$\tau_{\max} = \frac{\sigma_b}{2}$}
+\end{equation*}
+
+\textit{Directional factor:}
+\begin{equation*}
+\sigma_{\text{case2}} = \sigma_{\text{case1}} \cos(\Delta\psi)
+\end{equation*}
+
+\textit{Max occurs at:} $z=0$ (tower base)
+
+\columnbreak
+
+\section*{\scriptsize Aerodynamics}
+
+\subsection*{\tiny Basic Parameters}
+\textit{Tip-speed ratio (fundamental):}
+\begin{equation*}
+\textbf{$\lambda = \frac{\omega R}{V_\infty}$}
+\end{equation*}
+Typical: $\lambda = 8-13$
+
+\textit{Angular velocity:}
+\begin{equation*}
+\omega = \frac{2\pi n}{60} \quad [\text{rad/s}]
+\end{equation*}
+$n$ in RPM
+
+\textit{Local TSR:}
+\begin{equation*}
+\lambda_r = \lambda \frac{r}{R}
+\end{equation*}
+
+\subsection*{\tiny Induction Factors}
+\textit{Axial induction:}
+\begin{equation*}
+a = \tfrac{1}{3}
+\end{equation*}
+
+\textit{Tangential induction:}
+\begin{equation*}
+a' = -\tfrac{1}{2} + \tfrac{1}{2}\sqrt{1 + \tfrac{4}{\lambda_r^2}a(1-a)}
+\end{equation*}
+
+\subsection*{\tiny Flow Angles}
+\textit{Inflow angle:}
+\begin{equation*}
+\phi = \tan^{-1}\left(\frac{1-a}{(1+a')\lambda_r}\right)
+\end{equation*}
+
+\textit{Angle of attack:}
+\begin{equation*}
+\textbf{$\alpha = \phi - (\theta + \beta)$}
+\end{equation*}
+$\theta$ = twist, $\beta$ = pitch
+
+\textit{Relative velocity:}
+\begin{equation*}
+\textbf{$V_{\text{rel}} = \sqrt{(V_\infty(1-a))^2 + (\omega r(1+a'))^2}$}
+\end{equation*}
+
+\subsection*{\tiny Force Coefficients}
+\textit{Normal:}
+\begin{equation*}
+C_n = C_L\cos\phi + C_D\sin\phi
+\end{equation*}
+
+\textit{Tangential:}
+\begin{equation*}
+C_t = C_L\sin\phi - C_D\cos\phi
+\end{equation*}
+
+\subsection*{\tiny Elemental Loads}
+\textit{Thrust:}
+\begin{equation*}
+\mathrm{d}T = \tfrac{1}{2}\rho V_{\text{rel}}^2 c C_n
+\end{equation*}
+
+\textit{Torque:}
+\begin{equation*}
+\mathrm{d}Q = \tfrac{1}{2}\rho V_{\text{rel}}^2 c C_t r
+\end{equation*}
+
+\textit{Power:}
+\begin{equation*}
+\mathrm{d}P = \mathrm{d}Q \cdot \omega
+\end{equation*}
+
+\subsection*{\tiny Total Loads}
+\textit{Integration (trapezoidal):}
+\begin{equation*}
+T = B\int_{r_h}^R \mathrm{d}T\,\mathrm{d}r = B \cdot \text{trapz}(r, \mathrm{d}T)
+\end{equation*}
+\begin{equation*}
+P = B\int_{r_h}^R \mathrm{d}P\,\mathrm{d}r = B \cdot \text{trapz}(r, \mathrm{d}P)
+\end{equation*}
+$B$ = number of blades
+
+\subsection*{\tiny Performance Coefficients}
+\textit{Power coefficient (key metric):}
+\begin{equation*}
+\textbf{$C_P = \frac{P}{\tfrac{1}{2}\rho A V_\infty^3}$}
+\end{equation*}
+
+\textit{Thrust coefficient:}
+\begin{equation*}
+\textbf{$C_T = \frac{T}{\tfrac{1}{2}\rho A V_\infty^2}$}
+\end{equation*}
+
+\textit{Swept area:}
+\begin{equation*}
+A = \pi R^2
+\end{equation*}
+
+\textit{Betz limit:}
+\begin{equation*}
+C_{P,\max} = 0.5926 \quad (\text{theoretical max})
+\end{equation*}
+
+\textit{Power from $C_P$:}
+\begin{equation*}
+P = C_P \cdot \tfrac{1}{2}\rho A V_\infty^3
+\end{equation*}
+
+\columnbreak
+
+\section*{\scriptsize Material Strength}
+
+\textit{Process: (1) Calculate max stress $\sigma_{\max}$, (2) Obtain material properties $S_y$, $S_{ut}$, (3) Compute $n = \text{strength}/\text{stress}$, (4) Check $n \geq 2.0$}
+
+\subsection*{\tiny Static Failure}
+\textit{Max Normal Stress:}
+\begin{equation*}
+\textbf{$n_{\text{MNST}} = \frac{S_y}{\sigma_{\max}}$}
+\end{equation*}
+
+\textit{Max Shear Stress:}
+\begin{equation*}
+n_{\text{MSST}} = \frac{S_y/2}{\sigma_{\max}/2} = \frac{S_y}{\sigma_{\max}}
+\end{equation*}
+
+\textit{Distortion Energy:}
+\begin{equation*}
+\textbf{$n_{\text{DET}} = \frac{S_y}{\sqrt{\sigma_{\max}^2 + 3\tau_{\max}^2}}$}
+\end{equation*}
+
+\textit{Equivalent stress:}
+\begin{equation*}
+\sigma_{\text{eq}} = \sqrt{\sigma^2 + 3\tau^2}
+\end{equation*}
+
+\textit{For uniaxial:} all yield $n = S_y/\sigma_{\max}$
+
+\subsection*{\tiny Fatigue Analysis}
+\textit{Mean stress:}
+\begin{equation*}
+\sigma_m = \tfrac{1}{2}(\sigma_{\max} + \sigma_{\min})
+\end{equation*}
+
+\textit{Alternating stress:}
+\begin{equation*}
+\sigma_a = \tfrac{1}{2}|\sigma_{\max} - \sigma_{\min}|
+\end{equation*}
+
+\textit{Base endurance:}
+\begin{equation*}
+S'_e = C_{se} S_{ut}
+\end{equation*}
+
+\textit{Modified endurance:}
+\begin{equation*}
+S_e = C_{\text{size}} C_{\text{surf}} C_{\text{rel}} S'_e
+\end{equation*}
+
+\textit{Goodman safety factor:}
+\begin{equation*}
+\textbf{$n_G = \frac{1}{\dfrac{\sigma_a}{S_e} + \dfrac{\sigma_m}{S_{ut}}}$}
+\end{equation*}
+Requires: $n_G \geq 2.0$
+
+\columnbreak
+
+\section*{\scriptsize Other Relations}
+
+\subsection*{\tiny Circular Cylinders}
+\textit{Re $< 2 \times 10^5$:}
+\begin{equation*}
+C_D = 11\text{Re}^{-0.75} + 0.9(1-e^{-1000/\text{Re}}) + 1.2(1-e^{-(\text{Re}/4500)^{0.7}})
+\end{equation*}
+
+\textit{$2 \times 10^5 \leq \text{Re} \leq 5 \times 10^5$:}
+\begin{equation*}
+C_D = 10^{0.32\tanh(44.45-8\log_{10}\text{Re})-0.239}
+\end{equation*}
+
+\textit{Re $> 5 \times 10^5$:}
+\begin{equation*}
+C_D = 0.1\log_{10}\text{Re} - 0.253
+\end{equation*}
+
+\textit{Reynolds number:}
+\begin{equation*}
+\text{Re} = \frac{\rho V_{\text{rel}} D}{\mu}
+\end{equation*}
+
+\subsection*{\tiny Key Constants}
+\textit{Typical values:}
+\begin{itemize}
+\item $C_{se} = 0.5$ (endurance factor)
+\item $C_{\text{size}} \approx 0.9$ (size factor)
+\item $C_{\text{surf}} \approx 0.7$ (surface factor)
+\item $C_{\text{rel}} = 1.0$ (reliability)
+\end{itemize}
+
+\subsection*{\tiny Air Properties}
+\textit{Typical values:}
+\begin{itemize}
+\item $\rho = 1.225$ kg/m³ (sea level)
+\item $\mu = 1.81 \times 10^{-5}$ Pa·s
+\end{itemize}
+
+\subsection*{\tiny Power Relations}
+\textit{Power from $C_P$:}
+\begin{equation*}
+P = C_P \cdot \tfrac{1}{2}\rho A V_\infty^3
+\end{equation*}
+
+\subsection*{\tiny Mohr's Circle}
+\textit{Radius:}
+\begin{equation*}
+R = \sqrt{\left(\frac{\sigma_x - \sigma_y}{2}\right)^2 + \tau_{xy}^2}
+\end{equation*}
+
+\textit{Center:}
+\begin{equation*}
+C = \frac{\sigma_x + \sigma_y}{2}
+\end{equation*}
+
+\subsection*{\tiny Second Moment of Area}
+\textit{Solid cylinder:}
+\begin{equation*}
+I = \frac{\pi D^4}{64} = \frac{\pi R^4}{4}
+\end{equation*}
+
+\textit{Ring (hollow):}
+\begin{equation*}
+I = \frac{\pi}{64}(D_o^4 - D_i^4) = \frac{\pi}{4}(R_o^4 - R_i^4)
+\end{equation*}
+
+\textit{Rectangle:}
+\begin{equation*}
+I = \frac{bh^3}{12}
+\end{equation*}
+
+\subsection*{\tiny Material Properties}
+\begin{itemize}
+\item $S_y$ = yield strength [Pa]
+\item $S_{ut}$ = ultimate strength [Pa]
+\item $E$ = elastic modulus [Pa]
+\item $I$ = second moment of area [m$^4$]
+\end{itemize}
+
+\textit{Typical steel:}
+$S_y \approx 345$ MPa, $S_{ut} \approx 450$ MPa, $E \approx 200$ GPa
+
+\subsection*{\tiny Assumptions}
+\begin{itemize}
+\item Steady-state, linear-elastic
+\item Pure bending (uniaxial)
+\item Rigid nacelle
+\item No blade interference
+\end{itemize}
+
+\end{multicols}
+\end{document}
+
