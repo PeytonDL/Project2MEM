@@ -1,15 +1,25 @@
 \documentclass[8pt]{article}
 \usepackage[margin=0.25in,landscape]{geometry}
 \usepackage{amsmath,amssymb}
+\usepackage{graphicx}
 \usepackage{multicol}
+\usepackage{enumitem}
 \usepackage{array}
 \setlength{\columnsep}{0.15in}
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0pt}
-\setlength{\abovedisplayskip}{1pt}
-\setlength{\belowdisplayskip}{1pt}
-\setlength{\abovedisplayshortskip}{1pt}
-\setlength{\belowdisplayshortskip}{1pt}
+\setlength{\abovedisplayskip}{-2pt}
+\setlength{\belowdisplayskip}{-2pt}
+\setlength{\abovedisplayshortskip}{-2pt}
+\setlength{\belowdisplayshortskip}{-2pt}
+\jot=1pt
+% Tighten inline math spacing
+\mathsurround=0pt
+\thinmuskip=1mu
+\medmuskip=2mu
+\thickmuskip=3mu
+% Tighten list spacing globally
+\setlist{nosep,leftmargin=*,itemsep=0pt,parsep=0pt,topsep=0pt}
 
 % Compact spacing
 \renewcommand{\baselinestretch}{0.75}
@@ -89,33 +99,19 @@ $c = R_{\text{outer}}$ for tubes
 
 \textit{Max occurs at:} $z=0$ (tower base)
 
-\columnbreak
+
 
 \section*{\scriptsize Aerodynamics}
 
 \subsection*{\tiny Basic Parameters}
-\textit{Tip-speed ratio (fundamental):}
-\begin{equation*}
-\textbf{$\lambda = \frac{\omega R}{V_\infty}$}
-\end{equation*}
-Typical: $\lambda = 8-13$
+\textit{Tip-speed ratio (fundamental):} \textbf{$\lambda = \frac{\omega R}{V_\infty}$} \; (Typical $\lambda=8$--$13$)
 
-\textit{Angular velocity:}
-\begin{equation*}
-\omega = \frac{2\pi n}{60} \quad [\text{rad/s}]
-\end{equation*}
-$n$ in RPM
+\textit{Angular velocity:} $\omega = \frac{2\pi n}{60}$ [rad/s] \; ($n$ in RPM)
 
-\textit{Local TSR:}
-\begin{equation*}
-\lambda_r = \lambda \frac{r}{R}
-\end{equation*}
+\textit{Local TSR:} $\lambda_r = \lambda\, r/R$
 
 \subsection*{\tiny Induction Factors}
-\textit{Axial induction:}
-\begin{equation*}
-a = \tfrac{1}{3}
-\end{equation*}
+\textit{Axial induction:} $a = \tfrac{1}{3}$
 
 \textit{Tangential induction:}
 \begin{equation*}
@@ -128,16 +124,9 @@ a' = -\tfrac{1}{2} + \tfrac{1}{2}\sqrt{1 + \tfrac{4}{\lambda_r^2}a(1-a)}
 \phi = \tan^{-1}\left(\frac{1-a}{(1+a')\lambda_r}\right)
 \end{equation*}
 
-\textit{Angle of attack:}
-\begin{equation*}
-\textbf{$\alpha = \phi - (\theta + \beta)$}
-\end{equation*}
-$\theta$ = twist, $\beta$ = pitch
+\textit{Angle of attack:} \textbf{$\alpha = \phi - (\theta + \beta)$} \; ($\theta$ = twist, $\beta$ = pitch)
 
-\textit{Relative velocity:}
-\begin{equation*}
-\textbf{$V_{\text{rel}} = \sqrt{(V_\infty(1-a))^2 + (\omega r(1+a'))^2}$}
-\end{equation*}
+\textit{Relative velocity:} \textbf{$V_{\text{rel}} = \sqrt{(V_\infty(1-a))^2 + (\omega r(1+a'))^2}$}
 
 \subsection*{\tiny Force Coefficients}
 \textit{Normal:}
@@ -187,22 +176,9 @@ $B$ = number of blades
 \textbf{$C_T = \frac{T}{\tfrac{1}{2}\rho A V_\infty^2}$}
 \end{equation*}
 
-\textit{Swept area:}
-\begin{equation*}
-A = \pi R^2
-\end{equation*}
+\textit{Swept area:} $A = \pi R^2$ \;\; \textit{Betz limit:} $C_{P,\max} = 0.5926$ (theoretical max)
 
-\textit{Betz limit:}
-\begin{equation*}
-C_{P,\max} = 0.5926 \quad (\text{theoretical max})
-\end{equation*}
-
-\textit{Power from $C_P$:}
-\begin{equation*}
-P = C_P \cdot \tfrac{1}{2}\rho A V_\infty^3
-\end{equation*}
-
-\columnbreak
+\textit{Power from $C_P$:} $P = C_P\, (\tfrac{1}{2}\rho A V_\infty^3)$
 
 \section*{\scriptsize Material Strength}
 
@@ -262,23 +238,18 @@ Requires: $n_G \geq 2.0$
 
 \section*{\scriptsize Other Relations}
 
-\subsection*{\tiny Circular Cylinders}
-\textit{Re $< 2 \times 10^5$:}
+\subsection*{\tiny Bernoulli (Incompressible)}
+\textit{Along a streamline, steady, inviscid:}
 \begin{equation*}
-C_D = 11\text{Re}^{-0.75} + 0.9(1-e^{-1000/\text{Re}}) + 1.2(1-e^{-(\text{Re}/4500)^{0.7}})
+\textbf{$\frac{p}{\rho g} + \frac{V^2}{2g} + z = \text{const}$}
+\end{equation*}
+Equivalent energy form:
+\begin{equation*}
+\textbf{$p + \tfrac{1}{2}\rho V^2 + \rho g z = \text{const}$}
 \end{equation*}
 
-\textit{$2 \times 10^5 \leq \text{Re} \leq 5 \times 10^5$:}
-\begin{equation*}
-C_D = 10^{0.32\tanh(44.45-8\log_{10}\text{Re})-0.239}
-\end{equation*}
-
-\textit{Re $> 5 \times 10^5$:}
-\begin{equation*}
-C_D = 0.1\log_{10}\text{Re} - 0.253
-\end{equation*}
-
-\textit{Reynolds number:}
+\subsection*{\tiny Reynolds Number}
+\textit{Definition:}
 \begin{equation*}
 \text{Re} = \frac{\rho V_{\text{rel}} D}{\mu}
 \end{equation*}
@@ -349,7 +320,24 @@ $S_y \approx 345$ MPa, $S_{ut} \approx 450$ MPa, $E \approx 200$ GPa
 \item Pure bending (uniaxial)
 \item Rigid nacelle
 \item No blade interference
+\item \textbf{Lumped/Actuator-disk (aero): uniform axisymmetric inflow/outflow}
+\item \textbf{Inviscid, incompressible, steady far-field; pressure jump at disk}
+\item \textbf{No swirl in far-wake (for basic BEM); momentum applies}
+\item \textbf{Betz-optimal: }$a=1/3$ (upper bound for ideal power extraction)
 \end{itemize}
+
+\columnbreak
+
+\section*{\scriptsize Visual Notes}
+\textit{Blade element schematic (r, $\mathrm{d}r$, forces)}
+\begin{center}
+\includegraphics[width=\linewidth,height=0.36\textheight,keepaspectratio]{PNGS/Blade\space Variables.png}
+\end{center}
+\vspace{-6pt}
+\textit{Tower shear, moment, slope, deflection distributions}
+\begin{center}
+\includegraphics[width=\linewidth,height=0.36\textheight,keepaspectratio]{PNGS/Tower_Deflection_Analysis.png}
+\end{center}
 
 \end{multicols}
 \end{document}
